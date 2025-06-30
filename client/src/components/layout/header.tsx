@@ -24,7 +24,7 @@ export default function Header({ title, subtitle, showAddButton, onAddClick }: H
                 className="bg-[#0F7894] hover:bg-[#0c6078] text-white border-[#0F7894] shadow-sm"
               >
                 <Plus size={16} className="mr-2" />
-                Add Startup
+                {title === "Jury Management" ? "Invite Jury Member" : "Add Startup"}
               </Button>
             )}
             <div className="flex items-center space-x-2 text-gray-500">

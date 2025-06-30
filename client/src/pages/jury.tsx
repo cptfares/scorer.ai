@@ -19,10 +19,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Mail, UserPlus, Users, CheckCircle, Settings } from "lucide-react";
 import { z } from "zod";
 
-const juryFormSchema = insertUserSchema.extend({
+const juryInviteSchema = z.object({
   email: z.string().email("Invalid email address"),
   name: z.string().min(1, "Name is required"),
-  role: z.literal("jury"),
 });
 
 export default function Jury() {
@@ -41,37 +40,51 @@ export default function Jury() {
     queryKey: ["/api/startups"],
   });
 
-  const form = useForm<z.infer<typeof juryFormSchema>>({
-    resolver: zodResolver(juryFormSchema),
+  const form = useForm<z.infer<typeof juryInviteSchema>>({
+    resolver: zodResolver(juryInviteSchema),
     defaultValues: {
       email: "",
       name: "",
-      password: Math.random().toString(36).slice(-8), // Generate random password
-      role: "jury",
     },
   });
 
-  const createMutation = useMutation({
-    mutationFn: async (data: z.infer<typeof juryFormSchema>) => {
-      const response = await apiRequest("POST", "/api/users", data);
+  const inviteMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof juryInviteSchema>) => {
+      const response = await fetch("/api/jury/invite", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to invite jury member");
+      }
+      
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      toast({ title: "Jury member invited successfully" });
       setIsDialogOpen(false);
       form.reset();
+      toast({
+        title: "Jury Member Invited",
+        description: `Login credentials: Email: ${result.email}, Password: ${result.password}`,
+      });
     },
-    onError: () => {
-      toast({ title: "Failed to invite jury member", variant: "destructive" });
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
-  const onSubmit = (data: z.infer<typeof juryFormSchema>) => {
-    createMutation.mutate({
-      ...data,
-      password: Math.random().toString(36).slice(-8), // Generate random password for email
-    });
+  const onSubmit = (data: z.infer<typeof juryInviteSchema>) => {
+    inviteMutation.mutate(data);
   };
 
   return (
@@ -82,6 +95,8 @@ export default function Jury() {
         <Header 
           title="Jury Management" 
           subtitle="Manage jury members and assignments"
+          showAddButton={true}
+          onAddClick={() => setIsDialogOpen(true)}
         />
         
         <div className="p-8 space-y-8">
@@ -245,10 +260,10 @@ export default function Jury() {
                     </Button>
                     <Button 
                       type="submit" 
-                      className="bg-[hsl(var(--primary-500))] hover:bg-[hsl(var(--primary-600))]"
-                      disabled={createMutation.isPending}
+                      className="bg-[#0F7894] hover:bg-[#0c6078] text-white border-[#0F7894] shadow-sm"
+                      disabled={inviteMutation.isPending}
                     >
-                      Send Invitation
+                      {inviteMutation.isPending ? "Sending..." : "Send Invitation"}
                     </Button>
                   </div>
                 </form>

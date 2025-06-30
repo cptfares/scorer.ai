@@ -113,6 +113,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Jury invitation endpoint
+  app.post("/api/jury/invite", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { email, name } = req.body;
+      
+      // Generate random password
+      const password = Math.random().toString(36).slice(-8);
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ error: "User with this email already exists" });
+      }
+      
+      // Hash password before storing
+      const hashedPassword = await bcrypt.hash(password, 10);
+      
+      // Create jury member
+      const user = await storage.createUser({
+        email,
+        name,
+        password: hashedPassword,
+        role: "jury"
+      });
+      
+      // Remove password from user object for response
+      const { password: _, ...userWithoutPassword } = user;
+      
+      res.json({
+        user: userWithoutPassword,
+        email: user.email,
+        password, // Send plain password for admin to share with jury
+        message: "Jury member invited successfully"
+      });
+    } catch (error) {
+      console.error("Error inviting jury member:", error);
+      res.status(500).json({ error: "Failed to invite jury member" });
+    }
+  });
+
   // Phase routes
   app.get("/api/phases", async (req, res) => {
     try {

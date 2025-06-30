@@ -32,9 +32,8 @@ export default function JuryDashboard() {
     queryKey: ["/api/evaluations"],
   });
 
-  const assignedStartups = startups?.filter((startup: any) => 
-    assignments?.some((assignment: any) => assignment.startupId === startup.id)
-  ) || [];
+  // Show all startups for jury members to evaluate
+  const assignedStartups = startups || [];
 
   const myEvaluations = evaluations?.filter((evaluation: any) => 
     evaluation.juryId === user?.user?.id
