@@ -38,6 +38,7 @@ export const startups = pgTable("startups", {
   website: text("website"),
   logoUrl: text("logo_url"),
   phaseId: integer("phase_id").references(() => phases.id),
+  finalDecision: text("final_decision"), // 'accept', 'reject', null for pending
   createdAt: timestamp("created_at").defaultNow(),
 });
 
