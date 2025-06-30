@@ -93,11 +93,12 @@ export default function Dashboard() {
     
     const totalScore = startupEvals.reduce((sum: number, evaluation: any) => {
       const evalScores = Object.values(evaluation.scores || {}) as number[];
+      if (evalScores.length === 0) return sum;
       const avgScore = evalScores.reduce((a: number, b: number) => a + b, 0) / evalScores.length;
       return sum + avgScore;
     }, 0);
     
-    return totalScore / startupEvals.length;
+    return startupEvals.length > 0 ? totalScore / startupEvals.length : 0;
   };
 
   const getStartupRanking = () => {
@@ -122,14 +123,35 @@ export default function Dashboard() {
     return jury ? jury.name || jury.email : `Jury Member ${juryId}`;
   };
 
+  // Loading states
+  const isLoading = statsLoading || scoresLoading || startupsLoading;
+
   const rankedStartups = getStartupRanking();
   const totalEvaluations = Array.isArray(evaluations) ? evaluations.length : 0;
   const completedEvaluations = Array.isArray(evaluations) ? evaluations.filter((e: any) => e.isCompleted).length : 0;
   const avgScore = Array.isArray(evaluations) && evaluations.length ? 
     evaluations.reduce((sum: number, e: any) => {
       const scores = Object.values(e.scores || {}) as number[];
-      return sum + (scores.reduce((a: number, b: number) => a + b, 0) / scores.length);
+      const scoreAvg = scores.length > 0 ? scores.reduce((a: number, b: number) => a + b, 0) / scores.length : 0;
+      return sum + scoreAvg;
     }, 0) / evaluations.length : 0;
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex bg-gray-50">
+        <Sidebar />
+        <main className="flex-1 ml-64 min-h-screen p-6">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0F7894] mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading analytics...</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex bg-gray-50">
@@ -149,7 +171,7 @@ export default function Dashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">Total Startups</p>
-                    <p className="text-3xl font-bold text-gray-900">{stats?.totalStartups || (Array.isArray(startups) ? startups.length : 0)}</p>
+                    <p className="text-3xl font-bold text-gray-900">{(stats as any)?.totalStartups || (Array.isArray(startups) ? startups.length : 0)}</p>
                   </div>
                   <div className="h-12 w-12 bg-[#0F7894]/10 rounded-lg flex items-center justify-center">
                     <Rocket className="h-6 w-6 text-[#0F7894]" />
@@ -242,7 +264,7 @@ export default function Dashboard() {
                           <TableCell>
                             <div>
                               <p className="font-medium">{startup.name}</p>
-                              <p className="text-sm text-gray-500">{startup.category}</p>
+                              <p className="text-sm text-gray-500">{startup.category || startup.industry || 'No category'}</p>
                             </div>
                           </TableCell>
                           <TableCell>
