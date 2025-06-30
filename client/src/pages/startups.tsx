@@ -177,7 +177,7 @@ export default function Startups() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleDelete(startup.id)}
-                      className="bg-white shadow-sm hover:bg-red-50 hover:text-red-600"
+                      className="bg-white shadow-sm hover:bg-red-50 hover:text-red-600 border-red-200 text-red-500"
                     >
                       <Trash2 size={14} />
                     </Button>
@@ -346,12 +346,13 @@ export default function Startups() {
                       type="button" 
                       variant="outline" 
                       onClick={() => setIsDialogOpen(false)}
+                      className="text-slate-600 border-slate-300 hover:bg-slate-50 shadow-sm"
                     >
                       Cancel
                     </Button>
                     <Button 
                       type="submit" 
-                      className="bg-[hsl(var(--primary-500))] hover:bg-[hsl(var(--primary-600))]"
+                      className="bg-[#0F7894] hover:bg-[#0c6078] text-white border-[#0F7894] shadow-sm"
                       disabled={createMutation.isPending || updateMutation.isPending}
                     >
                       {editingStartup ? "Update" : "Create"} Startup

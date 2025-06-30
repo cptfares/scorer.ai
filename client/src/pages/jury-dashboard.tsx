@@ -88,10 +88,10 @@ export default function JuryDashboard() {
         <div className="max-w-6xl mx-auto space-y-8">
           {/* Welcome Section */}
           <div>
-            <h2 className="text-3xl font-bold text-[hsl(var(--gray-700))] mb-2">
+            <h2 className="text-3xl font-bold text-slate-800 mb-2">
               Welcome back, {user?.user?.name}
             </h2>
-            <p className="text-[hsl(var(--gray-500))]">
+            <p className="text-slate-600">
               You have {assignedStartups.length} startups assigned for evaluation
             </p>
           </div>
@@ -107,8 +107,8 @@ export default function JuryDashboard() {
                       {totalAssigned}
                     </p>
                   </div>
-                  <div className="w-12 h-12 bg-[hsl(var(--primary-100))] rounded-lg flex items-center justify-center">
-                    <Rocket className="text-[hsl(var(--primary-600))]" size={24} />
+                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Rocket className="text-[#0F7894]" size={24} />
                   </div>
                 </div>
               </CardContent>

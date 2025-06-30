@@ -53,20 +53,20 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[hsl(var(--primary-50))] to-[hsl(var(--primary-100))] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-slate-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-[hsl(var(--primary-500))] rounded-2xl mx-auto mb-4 flex items-center justify-center">
+          <div className="w-16 h-16 bg-[#0F7894] rounded-2xl mx-auto mb-4 flex items-center justify-center">
             <BarChart3 className="text-white text-2xl" size={32} />
           </div>
-          <h1 className="text-3xl font-bold text-[hsl(var(--gray-700))]">StartupEval</h1>
-          <p className="text-[hsl(var(--gray-500))] mt-2">Sign in to your account</p>
+          <h1 className="text-3xl font-bold text-slate-800">StartupEval</h1>
+          <p className="text-slate-600 mt-2">Sign in to your account</p>
         </div>
 
-        <Card className="shadow-xl border-0">
+        <Card className="shadow-xl border-0 bg-white">
           <CardHeader className="space-y-1 pb-6">
-            <CardTitle className="text-2xl text-center text-[hsl(var(--gray-700))]">Welcome back</CardTitle>
-            <p className="text-sm text-[hsl(var(--gray-500))] text-center">
+            <CardTitle className="text-2xl text-center text-slate-800">Welcome back</CardTitle>
+            <p className="text-sm text-slate-600 text-center">
               Enter your credentials to access the platform
             </p>
           </CardHeader>
@@ -78,15 +78,15 @@ export default function Login() {
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-[hsl(var(--gray-600))]">Email Address</FormLabel>
+                      <FormLabel className="text-slate-700 font-medium">Email Address</FormLabel>
                       <FormControl>
                         <div className="relative">
-                          <User className="absolute left-3 top-3 text-[hsl(var(--gray-400))]" size={18} />
+                          <User className="absolute left-3 top-3 text-slate-400" size={18} />
                           <Input 
                             {...field}
                             type="email"
                             placeholder="Enter your email"
-                            className="pl-10 h-12 border-[hsl(var(--gray-300))] focus:border-[hsl(var(--primary-500))] focus:ring-[hsl(var(--primary-500))]"
+                            className="pl-10 h-12 border-slate-300 focus:border-[#0F7894] focus:ring-2 focus:ring-[#0F7894]/20 bg-white"
                           />
                         </div>
                       </FormControl>
@@ -100,15 +100,15 @@ export default function Login() {
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-[hsl(var(--gray-600))]">Password</FormLabel>
+                      <FormLabel className="text-slate-700 font-medium">Password</FormLabel>
                       <FormControl>
                         <div className="relative">
-                          <Lock className="absolute left-3 top-3 text-[hsl(var(--gray-400))]" size={18} />
+                          <Lock className="absolute left-3 top-3 text-slate-400" size={18} />
                           <Input 
                             {...field}
                             type="password"
                             placeholder="Enter your password"
-                            className="pl-10 h-12 border-[hsl(var(--gray-300))] focus:border-[hsl(var(--primary-500))] focus:ring-[hsl(var(--primary-500))]"
+                            className="pl-10 h-12 border-slate-300 focus:border-[#0F7894] focus:ring-2 focus:ring-[#0F7894]/20 bg-white"
                           />
                         </div>
                       </FormControl>
@@ -119,7 +119,7 @@ export default function Login() {
 
                 <Button 
                   type="submit" 
-                  className="w-full h-12 bg-[hsl(var(--primary-500))] hover:bg-[hsl(var(--primary-600))] text-white font-medium"
+                  className="w-full h-12 bg-[#0F7894] hover:bg-[#0c6078] text-white font-medium border-[#0F7894] shadow-sm"
                   disabled={loginMutation.isPending}
                 >
                   {loginMutation.isPending ? "Signing in..." : "Sign In"}

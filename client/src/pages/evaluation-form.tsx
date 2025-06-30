@@ -306,13 +306,14 @@ export default function EvaluationForm() {
                             variant="outline"
                             onClick={handleSaveDraft}
                             disabled={saveDraftMutation.isPending}
+                            className="text-slate-600 border-slate-300 hover:bg-slate-50 shadow-sm"
                           >
                             <Save size={16} className="mr-2" />
                             Save Draft
                           </Button>
                           <Button 
                             type="submit"
-                            className="bg-[hsl(var(--primary-500))] hover:bg-[hsl(var(--primary-600))]"
+                            className="bg-[#0F7894] hover:bg-[#0c6078] text-white border-[#0F7894] shadow-sm"
                             disabled={submitMutation.isPending}
                           >
                             <Send size={16} className="mr-2" />

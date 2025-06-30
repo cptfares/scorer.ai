@@ -112,34 +112,44 @@
 
 @layer components {
   .sidebar-nav-item {
-    @apply flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors;
+    @apply flex items-center space-x-3 px-4 py-3 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors;
   }
 
   .sidebar-nav-item.active {
-    @apply text-white bg-[hsl(var(--primary-500))] hover:bg-[hsl(var(--primary-600))];
+    @apply text-white bg-[#0F7894] hover:bg-[#0c6078];
   }
 
   .score-button {
-    @apply w-8 h-8 rounded-full border border-gray-300 hover:border-[hsl(var(--primary-500))] hover:bg-[hsl(var(--primary-50))] transition-colors flex items-center justify-center text-sm font-medium;
+    @apply w-8 h-8 rounded-full border-2 border-slate-300 hover:border-[#0F7894] hover:bg-slate-50 transition-colors flex items-center justify-center text-sm font-medium cursor-pointer;
   }
 
   .score-button.selected {
-    @apply bg-[hsl(var(--primary-500))] text-white border-[hsl(var(--primary-500))];
+    @apply bg-[#0F7894] text-white border-[#0F7894];
   }
 
   .decision-button {
-    @apply p-4 border-2 border-gray-200 bg-gray-50 text-gray-700 rounded-lg font-medium transition-colors;
+    @apply p-4 border-2 border-slate-300 bg-white text-slate-700 rounded-lg font-medium transition-colors cursor-pointer hover:border-slate-400;
   }
 
   .decision-button.yes {
-    @apply border-[hsl(var(--success))] bg-[hsl(var(--success-50))] text-[hsl(var(--success-600))];
+    @apply border-green-500 bg-green-50 text-green-700 hover:bg-green-100;
   }
 
   .decision-button.maybe {
-    @apply border-[hsl(var(--warning))] bg-[hsl(var(--warning-50))] text-[hsl(var(--warning-600))];
+    @apply border-amber-500 bg-amber-50 text-amber-700 hover:bg-amber-100;
   }
 
   .decision-button.no {
-    @apply border-[hsl(var(--error))] bg-[hsl(var(--error-50))] text-[hsl(var(--error-600))];
+    @apply border-red-500 bg-red-50 text-red-700 hover:bg-red-100;
+  }
+
+  /* Primary button styling */
+  .btn-primary {
+    @apply bg-[#0F7894] text-white border-[#0F7894] hover:bg-[#0c6078] hover:border-[#0c6078];
+  }
+
+  /* Card styling */
+  .card-primary {
+    @apply bg-white border border-slate-200 shadow-sm hover:shadow-md transition-shadow;
   }
 }

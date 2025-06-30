@@ -61,7 +61,7 @@ export default function StartupCard({
           <Button 
             variant="outline" 
             size="sm" 
-            className="flex-1"
+            className="flex-1 text-[#0F7894] border-[#0F7894] hover:bg-blue-50 shadow-sm"
             onClick={() => onView?.(startup.id)}
           >
             <Eye size={14} className="mr-1" />
@@ -70,7 +70,7 @@ export default function StartupCard({
           <Button 
             variant="outline" 
             size="sm" 
-            className="flex-1"
+            className="flex-1 text-slate-600 border-slate-300 hover:bg-slate-50 shadow-sm"
             onClick={() => onEdit?.(startup.id)}
           >
             <Edit size={14} className="mr-1" />

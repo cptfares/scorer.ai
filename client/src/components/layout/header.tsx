@@ -21,7 +21,7 @@ export default function Header({ title, subtitle, showAddButton, onAddClick }: H
             {showAddButton && (
               <Button
                 onClick={onAddClick}
-                className="bg-[hsl(var(--primary-500))] hover:bg-[hsl(var(--primary-600))] text-white"
+                className="bg-[#0F7894] hover:bg-[#0c6078] text-white border-[#0F7894] shadow-sm"
               >
                 <Plus size={16} className="mr-2" />
                 Add Startup

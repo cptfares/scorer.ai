@@ -25,14 +25,14 @@ export default function Sidebar() {
 
   return (
     <aside className="w-64 bg-white shadow-lg border-r border-gray-200 fixed h-full z-30">
-      <div className="p-6 border-b border-gray-200">
+      <div className="p-6 border-b border-slate-200">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-[hsl(var(--primary-500))] rounded-lg flex items-center justify-center">
+          <div className="w-10 h-10 bg-[#0F7894] rounded-lg flex items-center justify-center">
             <BarChart3 className="text-white text-lg" size={20} />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">StartupEval</h1>
-            <p className="text-sm text-gray-500">Pro Platform</p>
+            <h1 className="text-xl font-bold text-slate-900">StartupEval</h1>
+            <p className="text-sm text-slate-500">Pro Platform</p>
           </div>
         </div>
       </div>

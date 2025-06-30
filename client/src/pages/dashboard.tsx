@@ -84,8 +84,8 @@ export default function Dashboard() {
                       {stats?.totalStartups || 0}
                     </p>
                   </div>
-                  <div className="w-12 h-12 bg-[hsl(var(--primary-100))] rounded-lg flex items-center justify-center">
-                    <Rocket className="text-[hsl(var(--primary-600))] text-xl" size={24} />
+                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Rocket className="text-[#0F7894] text-xl" size={24} />
                   </div>
                 </div>
                 <div className="mt-4 flex items-center text-sm">
@@ -105,8 +105,8 @@ export default function Dashboard() {
                     <p className="text-sm font-medium text-gray-600">Active Jury</p>
                     <p className="text-3xl font-bold text-gray-900 mt-2">18</p>
                   </div>
-                  <div className="w-12 h-12 bg-[hsl(var(--info-100))] rounded-lg flex items-center justify-center">
-                    <Users className="text-[hsl(var(--info-600))] text-xl" size={24} />
+                  <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <Users className="text-purple-600 text-xl" size={24} />
                   </div>
                 </div>
                 <div className="mt-4 flex items-center text-sm">
@@ -128,8 +128,8 @@ export default function Dashboard() {
                       {stats?.totalEvaluations || 0}
                     </p>
                   </div>
-                  <div className="w-12 h-12 bg-[hsl(var(--success-100))] rounded-lg flex items-center justify-center">
-                    <ClipboardCheck className="text-[hsl(var(--success-600))] text-xl" size={24} />
+                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                    <ClipboardCheck className="text-green-600 text-xl" size={24} />
                   </div>
                 </div>
                 <div className="mt-4 flex items-center text-sm">
@@ -233,7 +233,7 @@ export default function Dashboard() {
                   <p className="text-gray-600 mt-1">Comprehensive performance insights and data visualization</p>
                 </div>
                 <div className="flex space-x-3">
-                  <Button className="bg-[hsl(var(--primary-500))] hover:bg-[hsl(var(--primary-600))]">
+                  <Button className="bg-[#0F7894] hover:bg-[#0c6078] text-white border-[#0F7894] shadow-sm">
                     Export Report
                   </Button>
                   <select className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary-500))]">
