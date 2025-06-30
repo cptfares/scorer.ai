@@ -9,13 +9,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertUserSchema } from "@shared/schema";
+import { insertUserSchema, insertJuryAssignmentSchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, UserPlus, Users, CheckCircle } from "lucide-react";
+import { Mail, UserPlus, Users, CheckCircle, Settings } from "lucide-react";
 import { z } from "zod";
 
 const juryFormSchema = insertUserSchema.extend({
@@ -26,6 +27,9 @@ const juryFormSchema = insertUserSchema.extend({
 
 export default function Jury() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [selectedJury, setSelectedJury] = useState<any>(null);
+  const [selectedStartups, setSelectedStartups] = useState<number[]>([]);
   const { toast } = useToast();
 
   const { data: juryMembers, isLoading } = useQuery({

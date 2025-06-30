@@ -138,17 +138,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getJuryAssignments(juryId?: number, phaseId?: number): Promise<JuryAssignment[]> {
-    let query = db.select().from(juryAssignments);
-    
     if (juryId && phaseId) {
-      query = query.where(and(eq(juryAssignments.juryId, juryId), eq(juryAssignments.phaseId, phaseId)));
+      return await db.select().from(juryAssignments)
+        .where(and(eq(juryAssignments.juryId, juryId), eq(juryAssignments.phaseId, phaseId)));
     } else if (juryId) {
-      query = query.where(eq(juryAssignments.juryId, juryId));
+      return await db.select().from(juryAssignments)
+        .where(eq(juryAssignments.juryId, juryId));
     } else if (phaseId) {
-      query = query.where(eq(juryAssignments.phaseId, phaseId));
+      return await db.select().from(juryAssignments)
+        .where(eq(juryAssignments.phaseId, phaseId));
     }
     
-    return await query;
+    return await db.select().from(juryAssignments);
   }
 
   async createJuryAssignment(insertAssignment: InsertJuryAssignment): Promise<JuryAssignment> {
@@ -197,7 +198,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getStartupScores(phaseId?: number): Promise<any[]> {
-    let query = db
+    const baseQuery = db
       .select({
         startupId: startups.id,
         startupName: startups.name,
@@ -211,14 +212,14 @@ export class DatabaseStorage implements IStorage {
       .groupBy(startups.id, startups.name, startups.category, evaluations.decision);
 
     if (phaseId) {
-      query = query.where(eq(startups.phaseId, phaseId));
+      return await baseQuery.where(eq(startups.phaseId, phaseId));
     }
 
-    return await query;
+    return await baseQuery;
   }
 
   async getEvaluationStats(phaseId?: number): Promise<any> {
-    let query = db
+    const baseQuery = db
       .select({
         totalStartups: sql<number>`COUNT(DISTINCT ${startups.id})`,
         totalEvaluations: sql<number>`COUNT(${evaluations.id})`,
@@ -229,10 +230,11 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(evaluations, eq(startups.id, evaluations.startupId));
 
     if (phaseId) {
-      query = query.where(eq(startups.phaseId, phaseId));
+      const [stats] = await baseQuery.where(eq(startups.phaseId, phaseId));
+      return stats;
     }
 
-    const [stats] = await query;
+    const [stats] = await baseQuery;
     return stats;
   }
 }

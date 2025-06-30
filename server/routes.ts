@@ -1,12 +1,97 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertUserSchema, insertPhaseSchema, insertStartupSchema, insertEvaluationCriteriaSchema, insertJuryAssignmentSchema, insertEvaluationSchema } from "@shared/schema";
 import { z } from "zod";
+import bcrypt from "bcrypt";
+import session from "express-session";
+
+// Extend session types
+declare module 'express-session' {
+  interface SessionData {
+    user?: {
+      id: number;
+      email: string;
+      name: string;
+      role: string;
+    };
+  }
+}
+
+// Session middleware setup
+const sessionMiddleware = session({
+  secret: process.env.SESSION_SECRET || 'your-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { 
+    secure: false, // Set to true in production with HTTPS
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+});
+
+// Authentication middleware
+function requireAuth(req: any, res: Response, next: NextFunction) {
+  if (req.session?.user) {
+    next();
+  } else {
+    res.status(401).json({ error: "Authentication required" });
+  }
+}
+
+function requireAdmin(req: any, res: Response, next: NextFunction) {
+  if (req.session?.user?.role === 'admin') {
+    next();
+  } else {
+    res.status(403).json({ error: "Admin access required" });
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Apply session middleware
+  app.use(sessionMiddleware);
+
+  // Authentication routes
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({ error: "Email and password required" });
+      }
+
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      const isValid = await bcrypt.compare(password, user.password);
+      if (!isValid) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      (req.session as any).user = { id: user.id, email: user.email, name: user.name, role: user.role };
+      res.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+    } catch (error) {
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy(() => {
+      res.json({ success: true });
+    });
+  });
+
+  app.get("/api/auth/me", (req: any, res) => {
+    if (req.session?.user) {
+      res.json({ user: req.session.user });
+    } else {
+      res.status(401).json({ error: "Not authenticated" });
+    }
+  });
+
   // User routes
-  app.get("/api/users", async (req, res) => {
+  app.get("/api/users", requireAuth, async (req, res) => {
     try {
       const role = req.query.role as string;
       const users = role ? await storage.getUsersByRole(role) : [];
@@ -16,10 +101,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/users", async (req, res) => {
+  app.post("/api/users", requireAdmin, async (req, res) => {
     try {
       const userData = insertUserSchema.parse(req.body);
-      const user = await storage.createUser(userData);
+      // Hash password before storing
+      const hashedPassword = await bcrypt.hash(userData.password, 10);
+      const user = await storage.createUser({ ...userData, password: hashedPassword });
       res.json(user);
     } catch (error) {
       res.status(400).json({ error: "Invalid user data" });

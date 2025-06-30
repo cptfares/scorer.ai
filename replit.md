@@ -100,4 +100,11 @@ Changelog:
 
 ## User Preferences
 
-Preferred communication style: Simple, everyday language.
+- Preferred communication style: Simple, everyday language
+- Primary brand color: #0F7894 (replacing previous #007ea4)
+- Authentication required: Admin login system with jury member authentication
+- Color scheme: Professional, colorful design (not black and white)
+- Required features: 
+  - Admin can invite jury members and assign to cohorts
+  - Jury members login with email/password provided by admin
+  - Jury can view startup info and make evaluations
