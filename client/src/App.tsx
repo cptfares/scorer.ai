@@ -11,11 +11,16 @@ import Jury from "@/pages/jury";
 import Evaluations from "@/pages/evaluations";
 import EvaluationForm from "@/pages/evaluation-form";
 import JuryDashboard from "@/pages/jury-dashboard";
+import SetupPassword from "@/pages/setup-password";
 import NotFound from "@/pages/not-found";
+
+import Analytics from "@/pages/analytics";
+import Reports from "@/pages/reports";
 
 function Router() {
   return (
     <Switch>
+      <Route path="/setup-password" component={SetupPassword} />
       <Route path="/login" component={Login} />
       <Route path="/">
         <ProtectedRoute requireAdmin>
@@ -35,6 +40,16 @@ function Router() {
       <Route path="/jury">
         <ProtectedRoute requireAdmin>
           <Jury />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/analytics">
+        <ProtectedRoute requireAdmin>
+          <Analytics />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/reports">
+        <ProtectedRoute requireAdmin>
+          <Reports />
         </ProtectedRoute>
       </Route>
       <Route path="/evaluations">

@@ -1,21 +1,40 @@
 import { Button } from "@/components/ui/button";
-import { Bell, Plus } from "lucide-react";
+import { Bell, Plus, ArrowLeft } from "lucide-react";
+import { Link } from "wouter";
 
 interface HeaderProps {
   title: string;
   subtitle?: string;
   showAddButton?: boolean;
   onAddClick?: () => void;
+  showBackButton?: boolean;
+  backHref?: string;
 }
 
-export default function Header({ title, subtitle, showAddButton, onAddClick }: HeaderProps) {
+export default function Header({
+  title,
+  subtitle,
+  showAddButton,
+  onAddClick,
+  showBackButton,
+  backHref = "/"
+}: HeaderProps) {
   return (
     <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-20">
       <div className="px-8 py-4">
         <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
-            {subtitle && <p className="text-gray-600 mt-1">{subtitle}</p>}
+          <div className="flex items-center space-x-4">
+            {showBackButton && (
+              <Link href={backHref}>
+                <Button variant="ghost" size="icon" className="text-gray-500 hover:bg-gray-100 rounded-full h-10 w-10">
+                  <ArrowLeft size={20} />
+                </Button>
+              </Link>
+            )}
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
+              {subtitle && <p className="text-gray-600 mt-1">{subtitle}</p>}
+            </div>
           </div>
           <div className="flex items-center space-x-4">
             {showAddButton && (

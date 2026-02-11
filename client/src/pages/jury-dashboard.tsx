@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { 
-  Rocket, 
-  ClipboardCheck, 
+import {
+  Rocket,
+  ClipboardCheck,
   Star,
   LogOut,
   User,
@@ -18,32 +19,35 @@ export default function JuryDashboard() {
     queryKey: ["/api/auth/me"],
   });
 
-  const { data: assignments } = useQuery({
-    queryKey: ["/api/jury-assignments", user?.user?.id],
-    queryFn: () => fetch(`/api/jury-assignments?juryId=${user?.user?.id}`).then(res => res.json()),
+  const { data: assignments, isLoading: assignmentsLoading } = useQuery<any[]>({
+    queryKey: [`/api/jury-assignments?juryId=${user?.user?.id}`],
     enabled: !!user?.user?.id,
   });
 
-  const { data: startups } = useQuery({
+  const { data: startups, isLoading: startupsLoading } = useQuery<any[]>({
     queryKey: ["/api/startups"],
   });
 
-  const { data: evaluations } = useQuery({
+  const { data: evaluations } = useQuery<any[]>({
     queryKey: ["/api/evaluations"],
   });
 
-  // Show all startups for jury members to evaluate
-  const assignedStartups = startups || [];
+  // Filter startups based on assignments - ONLY show if explicitly assigned
+  const assignedStartupIds = Array.isArray(assignments) ? assignments.map((a: any) => a.startupId) : [];
+  const assignedStartups = (Array.isArray(startups) && Array.isArray(assignments))
+    ? startups.filter(s => assignedStartupIds.includes(s.id))
+    : [];
 
-  const myEvaluations = evaluations?.filter((evaluation: any) => 
+  const myEvaluations = Array.isArray(evaluations) ? evaluations.filter((evaluation: any) =>
     evaluation.juryId === user?.user?.id
-  ) || [];
+  ) : [];
 
   const completedEvaluations = myEvaluations.filter((e: any) => e.isCompleted).length;
   const totalAssigned = assignedStartups.length;
   const completionRate = totalAssigned > 0 ? Math.round((completedEvaluations / totalAssigned) * 100) : 0;
 
   const logout = async () => {
+    // Standard fetch is fine here since it's a simple POST to logout
     await fetch("/api/auth/logout", { method: "POST" });
     localStorage.removeItem("user");
     window.location.href = "/login";
@@ -190,9 +194,11 @@ export default function JuryDashboard() {
                             <p className="text-sm text-[hsl(var(--gray-500))]">{startup.category}</p>
                           </div>
                         </div>
-                        <Badge 
+                        <Badge
                           variant={isCompleted ? "default" : "secondary"}
-                          className={isCompleted ? "bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]" : ""}
+                          className={cn(
+                            isCompleted ? "bg-green-600 hover:bg-green-700 text-white" : "bg-slate-100 text-slate-600"
+                          )}
                         >
                           {isCompleted ? "Completed" : "Pending"}
                         </Badge>
@@ -218,9 +224,8 @@ export default function JuryDashboard() {
                       </div>
 
                       <Link href={`/evaluate/${startup.id}`}>
-                        <Button 
-                          className="w-full bg-[hsl(var(--primary-500))] hover:bg-[hsl(var(--primary-600))] text-white"
-                          disabled={isCompleted}
+                        <Button
+                          className="w-full bg-[#0F7894] hover:bg-[#0c6078] text-white shadow-md font-bold"
                         >
                           <Eye size={16} className="mr-2" />
                           {isCompleted ? "View Evaluation" : "Start Evaluation"}

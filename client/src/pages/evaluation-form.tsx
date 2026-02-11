@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import Sidebar from "@/components/layout/sidebar";
@@ -28,28 +28,42 @@ const evaluationFormSchema = insertEvaluationSchema.extend({
 export default function EvaluationForm() {
   const { startupId } = useParams<{ startupId: string }>();
   const [scores, setScores] = useState<Record<string, number>>({});
-  const [decision, setDecision] = useState<string>("");
+  const [decision, setDecision] = useState<"yes" | "maybe" | "no" | "">("");
   const { toast } = useToast();
 
-  const { data: startup, isLoading: startupLoading } = useQuery({
-    queryKey: ["/api/startups", startupId],
-    queryFn: () => fetch(`/api/startups/${startupId}`).then(res => res.json()),
+  const { data: authData } = useQuery<{ user: { id: number, name: string, role: string, email: string } } | null>({
+    queryKey: ["/api/auth/me"],
   });
 
-  const { data: criteria, isLoading: criteriaLoading } = useQuery({
+  const user = authData?.user;
+
+  const { data: activePhase } = useQuery<any>({
+    queryKey: ["/api/phases/active"],
+  });
+
+  const juryId = user?.id;
+  const phaseId = activePhase?.id;
+
+  const { data: startup, isLoading: startupLoading } = useQuery<any>({
+    queryKey: [`/api/startups/${startupId}`],
+    enabled: !!startupId,
+  });
+
+  const { data: criteria, isLoading: criteriaLoading } = useQuery<any[]>({
     queryKey: ["/api/evaluation-criteria"],
   });
 
-  const { data: existingEvaluation } = useQuery({
-    queryKey: ["/api/evaluations", 1, startupId], // TODO: Replace with actual jury ID
-    queryFn: () => fetch(`/api/evaluations/1/${startupId}`).then(res => res.json()),
+  const { data: existingEvaluation } = useQuery<any>({
+    queryKey: [`/api/evaluations/${juryId}/${startupId}`],
+    enabled: !!juryId && !!startupId,
   });
 
   const form = useForm<z.infer<typeof evaluationFormSchema>>({
     resolver: zodResolver(evaluationFormSchema),
     defaultValues: {
-      juryId: 1, // TODO: Replace with actual jury ID
+      juryId: juryId || 0,
       startupId: parseInt(startupId!),
+      phaseId: phaseId || 0,
       scores: {},
       comments: "",
       decision: undefined,
@@ -57,9 +71,30 @@ export default function EvaluationForm() {
     },
   });
 
+  // Update form juryId and phaseId when data is available
+  useEffect(() => {
+    if (juryId) form.setValue("juryId", juryId);
+    if (phaseId) form.setValue("phaseId", phaseId);
+  }, [juryId, phaseId, form]);
+
+  // Load existing evaluation data into form state
+  useEffect(() => {
+    if (existingEvaluation) {
+      if (existingEvaluation.scores) {
+        setScores(existingEvaluation.scores);
+      }
+      if (existingEvaluation.decision) {
+        setDecision(existingEvaluation.decision);
+      }
+      if (existingEvaluation.comments) {
+        form.setValue("comments", existingEvaluation.comments);
+      }
+    }
+  }, [existingEvaluation, form]);
+
   const saveDraftMutation = useMutation({
     mutationFn: async (data: z.infer<typeof evaluationFormSchema>) => {
-      const response = existingEvaluation 
+      const response = existingEvaluation
         ? await apiRequest("PUT", `/api/evaluations/${existingEvaluation.id}`, { ...data, isCompleted: false })
         : await apiRequest("POST", "/api/evaluations", { ...data, isCompleted: false });
       return response.json();
@@ -75,17 +110,17 @@ export default function EvaluationForm() {
 
   const submitMutation = useMutation({
     mutationFn: async (data: z.infer<typeof evaluationFormSchema>) => {
-      const response = existingEvaluation 
-        ? await apiRequest("PUT", `/api/evaluations/${existingEvaluation.id}`, { 
-            ...data, 
-            isCompleted: true, 
-            submittedAt: new Date().toISOString() 
-          })
-        : await apiRequest("POST", "/api/evaluations", { 
-            ...data, 
-            isCompleted: true, 
-            submittedAt: new Date().toISOString() 
-          });
+      const response = existingEvaluation
+        ? await apiRequest("PUT", `/api/evaluations/${existingEvaluation.id}`, {
+          ...data,
+          isCompleted: true,
+          submittedAt: new Date().toISOString()
+        })
+        : await apiRequest("POST", "/api/evaluations", {
+          ...data,
+          isCompleted: true,
+          submittedAt: new Date().toISOString()
+        });
       return response.json();
     },
     onSuccess: () => {
@@ -115,19 +150,19 @@ export default function EvaluationForm() {
       toast({ title: "Please provide scores for all criteria", variant: "destructive" });
       return;
     }
-    
+
     submitMutation.mutate({
       ...data,
       scores,
-      decision: decision as any,
+      decision: decision as "yes" | "maybe" | "no",
     });
   };
 
   if (startupLoading || criteriaLoading) {
     return (
       <div className="min-h-screen flex bg-gray-50">
-        <Sidebar />
-        <main className="flex-1 ml-64 min-h-screen">
+        {user?.role === 'admin' && <Sidebar />}
+        <main className={cn("flex-1 min-h-screen", user?.role === 'admin' ? "ml-64" : "mx-auto max-w-7xl")}>
           <div className="animate-pulse p-8">
             <div className="h-32 bg-gray-200 rounded mb-8"></div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -142,14 +177,16 @@ export default function EvaluationForm() {
 
   return (
     <div className="min-h-screen flex bg-gray-50">
-      <Sidebar />
-      
-      <main className="flex-1 ml-64 min-h-screen">
-        <Header 
-          title="Startup Evaluation" 
+      {user?.role === 'admin' && <Sidebar />}
+
+      <main className={cn("flex-1 min-h-screen", user?.role === 'admin' ? "ml-64" : "mx-auto max-w-7xl")}>
+        <Header
+          title="Startup Evaluation"
           subtitle={`Evaluating ${startup?.name}`}
+          showBackButton
+          backHref={user?.role === 'admin' ? "/dashboard" : "/jury-dashboard"}
         />
-        
+
         <div className="p-8">
           <Card>
             <CardHeader>
@@ -179,7 +216,7 @@ export default function EvaluationForm() {
                       <h3 className="text-lg font-semibold text-gray-900">{startup?.name}</h3>
                       <p className="text-gray-600">{startup?.category}</p>
                     </div>
-                    
+
                     <div className="space-y-3 text-sm">
                       <div className="flex justify-between">
                         <span className="text-gray-600">Founded:</span>
@@ -214,7 +251,7 @@ export default function EvaluationForm() {
                       {/* Evaluation Criteria */}
                       <div className="space-y-6">
                         <h4 className="text-lg font-medium text-gray-900">Evaluation Criteria</h4>
-                        
+
                         {criteria?.map((criterion: any) => (
                           <EvaluationCriteria
                             key={criterion.id}
@@ -222,7 +259,6 @@ export default function EvaluationForm() {
                             description={criterion.description}
                             value={scores[criterion.id]}
                             onChange={(score) => handleScoreChange(criterion.id.toString(), score)}
-                            disabled={existingEvaluation?.isCompleted}
                           />
                         ))}
                       </div>
@@ -235,11 +271,10 @@ export default function EvaluationForm() {
                           <FormItem>
                             <FormLabel>Additional Comments</FormLabel>
                             <FormControl>
-                              <Textarea 
+                              <Textarea
                                 {...field}
                                 rows={4}
                                 placeholder="Share your detailed feedback about this startup..."
-                                disabled={existingEvaluation?.isCompleted}
                               />
                             </FormControl>
                             <FormMessage />
@@ -256,11 +291,9 @@ export default function EvaluationForm() {
                           <button
                             type="button"
                             onClick={() => setDecision("yes")}
-                            disabled={existingEvaluation?.isCompleted}
                             className={cn(
                               "decision-button",
-                              decision === "yes" && "yes",
-                              existingEvaluation?.isCompleted && "opacity-50 cursor-not-allowed"
+                              decision === "yes" && "yes"
                             )}
                           >
                             <ThumbsUp size={20} className="mb-2" />
@@ -270,11 +303,9 @@ export default function EvaluationForm() {
                           <button
                             type="button"
                             onClick={() => setDecision("maybe")}
-                            disabled={existingEvaluation?.isCompleted}
                             className={cn(
                               "decision-button",
-                              decision === "maybe" && "maybe",
-                              existingEvaluation?.isCompleted && "opacity-50 cursor-not-allowed"
+                              decision === "maybe" && "maybe"
                             )}
                           >
                             <HelpCircle size={20} className="mb-2" />
@@ -284,11 +315,9 @@ export default function EvaluationForm() {
                           <button
                             type="button"
                             onClick={() => setDecision("no")}
-                            disabled={existingEvaluation?.isCompleted}
                             className={cn(
                               "decision-button",
-                              decision === "no" && "no",
-                              existingEvaluation?.isCompleted && "opacity-50 cursor-not-allowed"
+                              decision === "no" && "no"
                             )}
                           >
                             <ThumbsDown size={20} className="mb-2" />
@@ -299,28 +328,26 @@ export default function EvaluationForm() {
                       </div>
 
                       {/* Submit Buttons */}
-                      {!existingEvaluation?.isCompleted && (
-                        <div className="flex items-center justify-between pt-6 border-t border-gray-200">
-                          <Button 
-                            type="button"
-                            variant="outline"
-                            onClick={handleSaveDraft}
-                            disabled={saveDraftMutation.isPending}
-                            className="text-slate-600 border-slate-300 hover:bg-slate-50 shadow-sm"
-                          >
-                            <Save size={16} className="mr-2" />
-                            Save Draft
-                          </Button>
-                          <Button 
-                            type="submit"
-                            className="bg-[#0F7894] hover:bg-[#0c6078] text-white border-[#0F7894] shadow-sm"
-                            disabled={submitMutation.isPending}
-                          >
-                            <Send size={16} className="mr-2" />
-                            Submit Evaluation
-                          </Button>
-                        </div>
-                      )}
+                      <div className="flex items-center justify-between pt-6 border-t border-gray-200">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleSaveDraft}
+                          disabled={saveDraftMutation.isPending}
+                          className="text-slate-600 border-slate-300 hover:bg-slate-50 shadow-sm"
+                        >
+                          <Save size={16} className="mr-2" />
+                          {existingEvaluation?.isCompleted ? "Save as Draft" : "Save Draft"}
+                        </Button>
+                        <Button
+                          type="submit"
+                          className="bg-[#0F7894] hover:bg-[#0c6078] text-white border-[#0F7894] shadow-sm"
+                          disabled={submitMutation.isPending}
+                        >
+                          <Send size={16} className="mr-2" />
+                          {existingEvaluation?.isCompleted ? "Update Evaluation" : "Submit Evaluation"}
+                        </Button>
+                      </div>
                     </form>
                   </Form>
                 </div>

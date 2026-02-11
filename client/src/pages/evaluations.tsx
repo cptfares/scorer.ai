@@ -11,17 +11,16 @@ import { ClipboardCheck, Eye, FileText, TrendingUp } from "lucide-react";
 import { formatScore, getDecisionColor } from "@/lib/utils";
 
 export default function Evaluations() {
-  const { data: evaluations, isLoading } = useQuery({
+  const { data: evaluations, isLoading } = useQuery<any[]>({
     queryKey: ["/api/evaluations"],
   });
 
-  const { data: startups } = useQuery({
+  const { data: startups } = useQuery<any[]>({
     queryKey: ["/api/startups"],
   });
 
-  const { data: juryMembers } = useQuery({
-    queryKey: ["/api/users", { role: "jury" }],
-    queryFn: () => fetch("/api/users?role=jury").then(res => res.json()),
+  const { data: juryMembers } = useQuery<any[]>({
+    queryKey: ["/api/users?role=jury"],
   });
 
   const completedEvaluations = evaluations?.filter((e: any) => e.isCompleted).length || 0;
@@ -31,13 +30,13 @@ export default function Evaluations() {
   return (
     <div className="min-h-screen flex bg-gray-50">
       <Sidebar />
-      
+
       <main className="flex-1 ml-64 min-h-screen">
-        <Header 
-          title="Evaluations Overview" 
+        <Header
+          title="Evaluations Overview"
           subtitle="Track evaluation progress and results"
         />
-        
+
         <div className="p-8 space-y-8">
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -95,7 +94,7 @@ export default function Evaluations() {
                   <div>
                     <p className="text-sm font-medium text-gray-600">Avg Score</p>
                     <p className="text-3xl font-bold text-gray-900 mt-2">
-                      {evaluations?.length > 0 ? 
+                      {evaluations?.length > 0 ?
                         evaluations.reduce((sum: number, e: any) => {
                           const scores = e.scores ? Object.values(e.scores) : [];
                           const avg = scores.length > 0 ? scores.reduce((a: any, b: any) => a + b, 0) / scores.length : 0;
@@ -142,9 +141,9 @@ export default function Evaluations() {
                         <div className="text-right min-w-[120px]">
                           <div className="flex items-center space-x-2">
                             <div className="w-20 bg-gray-200 rounded-full h-2">
-                              <div 
-                                className="bg-[hsl(var(--success))] h-2 rounded-full transition-all" 
-                                style={{width: `${progress}%`}}
+                              <div
+                                className="bg-[hsl(var(--success))] h-2 rounded-full transition-all"
+                                style={{ width: `${progress}%` }}
                               ></div>
                             </div>
                             <span className="text-sm font-medium text-gray-700">{progress}%</span>
@@ -187,7 +186,7 @@ export default function Evaluations() {
                   {evaluations?.slice(0, 10).map((evaluation: any) => {
                     const startup = startups?.find((s: any) => s.id === evaluation.startupId);
                     const jury = juryMembers?.find((j: any) => j.id === evaluation.juryId);
-                    const scores = evaluation.scores ? Object.values(evaluation.scores) : [];
+                    const scores = evaluation.scores ? (Object.values(evaluation.scores) as any[]) : [];
                     const avgScore = scores.length > 0 ? scores.reduce((a: any, b: any) => a + b, 0) / scores.length : 0;
 
                     return (
@@ -204,7 +203,7 @@ export default function Evaluations() {
                         </TableCell>
                         <TableCell>
                           {evaluation.decision && (
-                            <Badge 
+                            <Badge
                               variant="outline"
                               className={`decision-button ${evaluation.decision.toLowerCase()}`}
                             >
@@ -218,8 +217,8 @@ export default function Evaluations() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {evaluation.submittedAt ? 
-                            new Date(evaluation.submittedAt).toLocaleDateString() : 
+                          {evaluation.submittedAt ?
+                            new Date(evaluation.submittedAt).toLocaleDateString() :
                             "Not submitted"
                           }
                         </TableCell>

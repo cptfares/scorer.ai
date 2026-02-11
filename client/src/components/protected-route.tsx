@@ -10,16 +10,28 @@ interface ProtectedRouteProps {
 export default function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
   const [, setLocation] = useLocation();
 
-  const { data: authData, isLoading, error } = useQuery({
+  const { data: authData, isLoading, error } = useQuery<{
+    user: {
+      id: number;
+      email: string;
+      name: string;
+      role: string;
+    } | null;
+  }>({
     queryKey: ["/api/auth/me"],
     retry: false,
+    staleTime: 0, // Always check auth on protected routes
   });
 
   useEffect(() => {
     if (!isLoading && (error || !authData?.user)) {
       setLocation("/login");
     } else if (!isLoading && requireAdmin && authData?.user?.role !== 'admin') {
-      setLocation("/jury-dashboard");
+      if (authData?.user?.role === 'jury') {
+        setLocation("/jury-dashboard");
+      } else {
+        setLocation("/login");
+      }
     }
   }, [isLoading, error, authData, setLocation, requireAdmin]);
 

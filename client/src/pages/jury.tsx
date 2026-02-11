@@ -32,12 +32,19 @@ export default function Jury() {
   const { toast } = useToast();
 
   const { data: juryMembers, isLoading } = useQuery({
-    queryKey: ["/api/users", { role: "jury" }],
-    queryFn: () => fetch("/api/users?role=jury").then(res => res.json()),
+    queryKey: ["/api/users?role=jury"],
   });
 
-  const { data: startups } = useQuery({
+  const { data: startups } = useQuery<any[]>({
     queryKey: ["/api/startups"],
+  });
+
+  const { data: activePhase } = useQuery<any>({
+    queryKey: ["/api/phases/active"],
+  });
+
+  const { data: allAssignments } = useQuery<any[]>({
+    queryKey: ["/api/jury-assignments"],
   });
 
   const form = useForm<z.infer<typeof juryInviteSchema>>({
@@ -50,28 +57,39 @@ export default function Jury() {
 
   const inviteMutation = useMutation({
     mutationFn: async (data: z.infer<typeof juryInviteSchema>) => {
-      const response = await fetch("/api/jury/invite", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to invite jury member");
-      }
-      
+      const response = await apiRequest("POST", "/api/jury/invite", data);
       return response.json();
     },
-    onSuccess: (result) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       setIsDialogOpen(false);
       form.reset();
       toast({
         title: "Jury Member Invited",
-        description: `Login credentials: Email: ${result.email}, Password: ${result.password}`,
+        description: "An invitation email has been sent to the jury member to set up their account.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const assignMutation = useMutation({
+    mutationFn: async (data: { juryId: number, startupIds: number[], phaseId: number }) => {
+      const response = await apiRequest("POST", "/api/jury-assignments/bulk", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jury-assignments"] });
+      setIsAssignDialogOpen(false);
+      setSelectedStartups([]);
+      toast({
+        title: "Assignments Updated",
+        description: "Startup assignments have been successfully updated.",
       });
     },
     onError: (error) => {
@@ -87,18 +105,40 @@ export default function Jury() {
     inviteMutation.mutate(data);
   };
 
+  const handleOpenAssignDialog = (member: any) => {
+    setSelectedJury(member);
+    const memberAssignments = allAssignments?.filter((a: any) => a.juryId === member.id) || [];
+    setSelectedStartups(memberAssignments.map((a: any) => a.startupId));
+    setIsAssignDialogOpen(true);
+  };
+
+  const handleAssignSubmit = () => {
+    if (!selectedJury || !activePhase) return;
+    assignMutation.mutate({
+      juryId: selectedJury.id,
+      startupIds: selectedStartups,
+      phaseId: activePhase.id
+    });
+  };
+
+  const toggleStartupSelection = (id: number) => {
+    setSelectedStartups(prev =>
+      prev.includes(id) ? prev.filter(sId => sId !== id) : [...prev, id]
+    );
+  };
+
   return (
     <div className="min-h-screen flex bg-gray-50">
       <Sidebar />
-      
+
       <main className="flex-1 ml-64 min-h-screen">
-        <Header 
-          title="Jury Management" 
+        <Header
+          title="Jury Management"
           subtitle="Manage jury members and assignments"
           showAddButton={true}
           onAddClick={() => setIsDialogOpen(true)}
         />
-        
+
         <div className="p-8 space-y-8">
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -108,7 +148,7 @@ export default function Jury() {
                   <div>
                     <p className="text-sm font-medium text-gray-600">Total Jury</p>
                     <p className="text-3xl font-bold text-gray-900 mt-2">
-                      {juryMembers?.length || 0}
+                      {Array.isArray(juryMembers) ? juryMembers.length : 0}
                     </p>
                   </div>
                   <div className="w-12 h-12 bg-[hsl(var(--info-100))] rounded-lg flex items-center justify-center">
@@ -124,7 +164,7 @@ export default function Jury() {
                   <div>
                     <p className="text-sm font-medium text-gray-600">Active Members</p>
                     <p className="text-3xl font-bold text-gray-900 mt-2">
-                      {juryMembers?.filter((j: any) => j.isActive).length || 0}
+                      {Array.isArray(juryMembers) ? juryMembers.filter((j: any) => j.isActive).length : 0}
                     </p>
                   </div>
                   <div className="w-12 h-12 bg-[hsl(var(--success-100))] rounded-lg flex items-center justify-center">
@@ -140,7 +180,7 @@ export default function Jury() {
                   <div>
                     <p className="text-sm font-medium text-gray-600">Avg Assignments</p>
                     <p className="text-3xl font-bold text-gray-900 mt-2">
-                      {startups?.length && juryMembers?.length ? 
+                      {Array.isArray(startups) && startups.length && Array.isArray(juryMembers) && juryMembers.length ?
                         Math.ceil(startups.length / juryMembers.length) : 0}
                     </p>
                   </div>
@@ -157,7 +197,7 @@ export default function Jury() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Jury Members</CardTitle>
-                <Button 
+                <Button
                   onClick={() => setIsDialogOpen(true)}
                   className="bg-[hsl(var(--primary-500))] hover:bg-[hsl(var(--primary-600))]"
                 >
@@ -183,7 +223,7 @@ export default function Jury() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {juryMembers?.map((member: any) => (
+                  {Array.isArray(juryMembers) && juryMembers.map((member: any) => (
                     <div key={member.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                       <div className="flex items-center space-x-3">
                         <div className="w-12 h-12 bg-[hsl(var(--primary-100))] rounded-full flex items-center justify-center">
@@ -197,15 +237,24 @@ export default function Jury() {
                         </div>
                       </div>
                       <div className="flex items-center space-x-3">
-                        <Badge 
+                        <Badge
                           variant={member.isActive ? "default" : "secondary"}
                           className={member.isActive ? "bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]" : ""}
                         >
                           {member.isActive ? "Active" : "Inactive"}
                         </Badge>
-                        <Button variant="outline" size="sm">
-                          View Assignments
-                        </Button>
+                        <div className="flex flex-col items-end">
+                          <span className="text-xs text-gray-500 mb-1">
+                            {allAssignments?.filter((a: any) => a.juryId === member.id).length || 0} Startups
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenAssignDialog(member)}
+                          >
+                            Assign Startups
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -219,7 +268,7 @@ export default function Jury() {
               <DialogHeader>
                 <DialogTitle>Invite Jury Member</DialogTitle>
               </DialogHeader>
-              
+
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                   <FormField
@@ -235,7 +284,7 @@ export default function Jury() {
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={form.control}
                     name="email"
@@ -251,15 +300,15 @@ export default function Jury() {
                   />
 
                   <div className="flex justify-end space-x-2 pt-4">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
+                    <Button
+                      type="button"
+                      variant="outline"
                       onClick={() => setIsDialogOpen(false)}
                     >
                       Cancel
                     </Button>
-                    <Button 
-                      type="submit" 
+                    <Button
+                      type="submit"
                       className="bg-[#0F7894] hover:bg-[#0c6078] text-white border-[#0F7894] shadow-sm"
                       disabled={inviteMutation.isPending}
                     >
@@ -268,6 +317,58 @@ export default function Jury() {
                   </div>
                 </form>
               </Form>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Assign Startups to {selectedJury?.name}</DialogTitle>
+              </DialogHeader>
+
+              <div className="space-y-4 py-4">
+                <div className="flex items-center justify-between text-sm text-gray-500">
+                  <p>Select startups to assign for {activePhase?.name || "Active Phase"}</p>
+                  <p>{selectedStartups.length} selected</p>
+                </div>
+
+                <div className="max-h-[400px] overflow-y-auto space-y-2 pr-2">
+                  {Array.isArray(startups) && startups.map((startup: any) => (
+                    <div
+                      key={startup.id}
+                      className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                      onClick={() => toggleStartupSelection(startup.id)}
+                    >
+                      <Checkbox
+                        checked={selectedStartups.includes(startup.id)}
+                        onCheckedChange={() => toggleStartupSelection(startup.id)}
+                      />
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900">{startup.name}</p>
+                        <p className="text-xs text-gray-500">{startup.category}</p>
+                      </div>
+                      <Badge variant="outline">{startup.stage}</Badge>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex justify-end space-x-2 pt-4 border-t">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsAssignDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleAssignSubmit}
+                    className="bg-[#0F7894] hover:bg-[#0c6078] text-white border-[#0F7894] shadow-sm"
+                    disabled={assignMutation.isPending || !activePhase}
+                  >
+                    {assignMutation.isPending ? "Saving..." : "Save Assignments"}
+                  </Button>
+                </div>
+              </div>
             </DialogContent>
           </Dialog>
         </div>

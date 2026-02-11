@@ -1,37 +1,45 @@
+// Force reload - Timestamp: 2026-02-11T21:00:00
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertUserSchema, insertPhaseSchema, insertStartupSchema, insertEvaluationCriteriaSchema, insertJuryAssignmentSchema, insertEvaluationSchema } from "@shared/schema";
 import { z } from "zod";
+import { supabaseAdmin } from "./supabase";
 import bcrypt from "bcrypt";
-import session from "express-session";
 
-// Extend session types
-declare module 'express-session' {
-  interface SessionData {
-    user?: {
-      id: number;
-      email: string;
-      name: string;
-      role: string;
-    };
+// Middleware to verify Supabase JWT
+async function authenticateUser(req: Request, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).json({ error: "Missing authorization header" });
   }
+
+  const token = authHeader.split(' ')[1];
+  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+
+  if (error || !user) {
+    return res.status(401).json({ error: "Invalid token" });
+  }
+
+  // Fetch user from our database to get their role
+  const dbUser = await storage.getUserByEmail(user.email!);
+  if (!dbUser) {
+    // Optionally create user in DB if they exist in Supabase but not in our DB
+    return res.status(401).json({ error: "User not found in database" });
+  }
+
+  (req as any).user = {
+    id: dbUser.id,
+    email: dbUser.email,
+    name: dbUser.name,
+    role: dbUser.role
+  };
+  next();
 }
-
-// Session middleware setup
-const sessionMiddleware = session({
-  secret: process.env.SESSION_SECRET || 'your-secret-key',
-  resave: false,
-  saveUninitialized: false,
-  cookie: { 
-    secure: false, // Set to true in production with HTTPS
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
-});
 
 // Authentication middleware
 function requireAuth(req: any, res: Response, next: NextFunction) {
-  if (req.session?.user) {
+  if (req.user) {
     next();
   } else {
     res.status(401).json({ error: "Authentication required" });
@@ -39,7 +47,7 @@ function requireAuth(req: any, res: Response, next: NextFunction) {
 }
 
 function requireAdmin(req: any, res: Response, next: NextFunction) {
-  if (req.session?.user?.role === 'admin') {
+  if (req.user?.role === 'admin') {
     next();
   } else {
     res.status(403).json({ error: "Admin access required" });
@@ -48,43 +56,40 @@ function requireAdmin(req: any, res: Response, next: NextFunction) {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Apply session middleware
-  app.use(sessionMiddleware);
+  // Apply authentication middleware to all /api routes except login/logout
+  app.use("/api", (req, res, next) => {
+    if (req.path === "/auth/login" || req.path === "/auth/logout" || req.method === "OPTIONS") {
+      return next();
+    }
+    authenticateUser(req, res, next);
+  });
 
   // Authentication routes
   app.post("/api/auth/login", async (req, res) => {
-    try {
-      const { email, password } = req.body;
-      
-      if (!email || !password) {
-        return res.status(400).json({ error: "Email and password required" });
-      }
+    // Login is now primarily handled on the frontend via Supabase.
+    // This endpoint can be used if session-like behavior is needed or for syncing.
+    const { email, session } = req.body;
 
-      const user = await storage.getUserByEmail(email);
-      if (!user) {
-        return res.status(401).json({ error: "Invalid credentials" });
-      }
-
-      const isValid = await bcrypt.compare(password, user.password);
-      if (!isValid) {
-        return res.status(401).json({ error: "Invalid credentials" });
-      }
-
-      (req.session as any).user = { id: user.id, email: user.email, name: user.name, role: user.role };
-      res.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role } });
-    } catch (error) {
-      res.status(500).json({ error: "Login failed" });
+    if (!session || !email) {
+      return res.status(400).json({ error: "Session and email required" });
     }
+
+    const user = await storage.getUserByEmail(email);
+    if (!user) {
+      return res.status(404).json({ error: "User not found in database" });
+    }
+
+    res.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role } });
   });
 
   app.post("/api/auth/logout", (req, res) => {
-    req.session.destroy(() => {
-      res.json({ success: true });
-    });
+    // Logout is handled on the frontend
+    res.json({ success: true });
   });
 
   app.get("/api/auth/me", (req: any, res) => {
-    if (req.session?.user) {
-      res.json({ user: req.session.user });
+    if (req.user) {
+      res.json({ user: req.user });
     } else {
       res.status(401).json({ error: "Not authenticated" });
     }
@@ -117,39 +122,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/jury/invite", requireAuth, requireAdmin, async (req, res) => {
     try {
       const { email, name } = req.body;
-      
-      // Generate random password
-      const password = Math.random().toString(36).slice(-8);
-      
+
       // Check if user already exists
       const existingUser = await storage.getUserByEmail(email);
       if (existingUser) {
         return res.status(400).json({ error: "User with this email already exists" });
       }
-      
-      // Hash password before storing
-      const hashedPassword = await bcrypt.hash(password, 10);
-      
-      // Create jury member
+
+      // Invite user via Supabase
+      const origin = req.headers.origin || `${req.protocol}://${req.get("host")}`;
+      const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+        data: { full_name: name },
+        redirectTo: `${origin}/setup-password`
+      });
+
+      if (inviteError) {
+        console.error("Supabase invite error:", inviteError);
+        return res.status(500).json({ error: inviteError.message });
+      }
+
+      // Create jury member in local DB
+      // We use a dummy password because Supabase handles authentication
       const user = await storage.createUser({
         email,
         name,
-        password: hashedPassword,
-        role: "jury"
+        password: "SUPABASE_MANAGED_AUTH",
+        role: "jury",
+        isActive: true
       });
-      
-      // Remove password from user object for response
+
       const { password: _, ...userWithoutPassword } = user;
-      
+
       res.json({
         user: userWithoutPassword,
-        email: user.email,
-        password, // Send plain password for admin to share with jury
-        message: "Jury member invited successfully"
+        message: "Jury member invited successfully. An invitation email has been sent."
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error inviting jury member:", error);
-      res.status(500).json({ error: "Failed to invite jury member" });
+      res.status(500).json({
+        error: "Failed to invite jury member",
+        details: error.message || String(error)
+      });
     }
   });
 
@@ -242,7 +255,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const { finalDecision } = req.body;
-      
+
       if (!finalDecision || !['accept', 'reject'].includes(finalDecision)) {
         return res.status(400).json({ error: "Invalid decision. Must be 'accept' or 'reject'" });
       }
@@ -287,13 +300,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/jury-assignments", async (req, res) => {
+  app.post("/api/jury-assignments", requireAuth, requireAdmin, async (req, res) => {
     try {
       const assignmentData = insertJuryAssignmentSchema.parse(req.body);
       const assignment = await storage.createJuryAssignment(assignmentData);
       res.json(assignment);
     } catch (error) {
       res.status(400).json({ error: "Invalid assignment data" });
+    }
+  });
+
+  app.post("/api/jury-assignments/bulk", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { juryId: rawJuryId, startupIds, phaseId: rawPhaseId } = req.body;
+      const juryId = parseInt(rawJuryId?.toString());
+      const phaseId = parseInt(rawPhaseId?.toString());
+
+      if (isNaN(juryId) || !Array.isArray(startupIds) || isNaN(phaseId)) {
+        return res.status(400).json({ error: "juryId, startupIds (array), and phaseId are required and must be valid" });
+      }
+
+      // Get existing assignments to avoid duplicates? 
+      // Simplified: Clear existing for this jury/phase and re-add
+      const existing = await storage.getJuryAssignments(juryId, phaseId);
+      for (const ext of existing) {
+        await storage.deleteJuryAssignment(ext.id);
+      }
+
+      const results = [];
+      for (const startupId of startupIds) {
+        const assignment = await storage.createJuryAssignment({
+          juryId,
+          startupId,
+          phaseId
+        });
+        results.push(assignment);
+      }
+
+      res.json(results);
+    } catch (error) {
+      console.error("Bulk assignment error:", error);
+      res.status(500).json({ error: "Failed to process bulk assignments" });
+    }
+  });
+
+  app.delete("/api/jury-assignments/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteJuryAssignment(id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete assignment" });
     }
   });
 

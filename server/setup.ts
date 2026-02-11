@@ -4,17 +4,17 @@ import bcrypt from "bcrypt";
 export async function setupDatabase() {
   try {
     // Create default admin user
-    const adminExists = await storage.getUserByEmail("admin@startupeyal.com");
+    const adminEmail = "admin@startupeyal.com";
+    const adminExists = await storage.getUserByEmail(adminEmail);
     if (!adminExists) {
-      const hashedPassword = await bcrypt.hash("admin123", 10);
       await storage.createUser({
-        email: "admin@startupeyal.com",
-        password: hashedPassword,
+        email: adminEmail,
+        password: "SUPABASE_AUTH_MANAGED", // Password is managed by Supabase Auth
         name: "Admin User",
         role: "admin",
         isActive: true,
       });
-      console.log("Admin user created: admin@startupeyal.com / admin123");
+      console.log(`Admin user record created for ${adminEmail}. Please ensure this user is also created in Supabase Auth.`);
     }
 
     // Create default evaluation criteria

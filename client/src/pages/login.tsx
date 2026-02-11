@@ -12,6 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 import { BarChart3, User, Lock } from "lucide-react";
 import { z } from "zod";
 
+import { supabase } from "@/lib/supabase";
+
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(1, "Password is required"),
@@ -31,7 +33,18 @@ export default function Login() {
 
   const loginMutation = useMutation({
     mutationFn: async (data: z.infer<typeof loginSchema>) => {
-      const response = await apiRequest("POST", "/api/auth/login", data);
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      });
+
+      if (error) throw error;
+
+      // Also call our backend to verify the user exists in our DB and get their local info
+      const response = await apiRequest("POST", "/api/auth/login", {
+        email: data.email,
+        session: authData.session
+      });
       return response.json();
     },
     onSuccess: (data) => {
@@ -40,10 +53,10 @@ export default function Login() {
       setLocation("/dashboard");
     },
     onError: (error: any) => {
-      toast({ 
-        title: "Login failed", 
+      toast({
+        title: "Login failed",
         description: error.message || "Invalid credentials",
-        variant: "destructive" 
+        variant: "destructive"
       });
     },
   });
@@ -82,7 +95,7 @@ export default function Login() {
                       <FormControl>
                         <div className="relative">
                           <User className="absolute left-3 top-3 text-slate-400" size={18} />
-                          <Input 
+                          <Input
                             {...field}
                             type="email"
                             placeholder="Enter your email"
@@ -94,7 +107,7 @@ export default function Login() {
                     </FormItem>
                   )}
                 />
-                
+
                 <FormField
                   control={form.control}
                   name="password"
@@ -104,7 +117,7 @@ export default function Login() {
                       <FormControl>
                         <div className="relative">
                           <Lock className="absolute left-3 top-3 text-slate-400" size={18} />
-                          <Input 
+                          <Input
                             {...field}
                             type="password"
                             placeholder="Enter your password"
@@ -117,8 +130,8 @@ export default function Login() {
                   )}
                 />
 
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="w-full h-12 bg-[#0F7894] hover:bg-[#0c6078] text-white font-medium border-[#0F7894] shadow-sm"
                   disabled={loginMutation.isPending}
                 >

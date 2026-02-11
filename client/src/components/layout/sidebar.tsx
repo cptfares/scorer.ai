@@ -1,17 +1,18 @@
 import { Link, useLocation } from "wouter";
-import { 
-  BarChart3, 
-  Users, 
-  Rocket, 
-  ClipboardCheck, 
-  TrendingUp, 
+import { useQuery } from "@tanstack/react-query";
+import {
+  BarChart3,
+  Users,
+  Rocket,
+  ClipboardCheck,
+  TrendingUp,
   FileText,
   LogOut,
   User
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const navigation = [
+const adminNavigation = [
   { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
   { name: "Startups", href: "/startups", icon: Rocket },
   { name: "Jury Management", href: "/jury", icon: Users },
@@ -20,8 +21,19 @@ const navigation = [
   { name: "Reports", href: "/reports", icon: FileText },
 ];
 
+const juryNavigation = [
+  { name: "Dashboard", href: "/jury-dashboard", icon: BarChart3 },
+];
+
 export default function Sidebar() {
   const [location] = useLocation();
+  const { data: authData } = useQuery<any>({
+    queryKey: ["/api/auth/me"],
+  });
+
+  const user = authData?.user;
+  const isAdmin = user?.role === 'admin';
+  const navigation = isAdmin ? adminNavigation : juryNavigation;
 
   return (
     <aside className="w-64 bg-white shadow-lg border-r border-gray-200 fixed h-full z-30">
@@ -36,12 +48,12 @@ export default function Sidebar() {
           </div>
         </div>
       </div>
-      
+
       <nav className="p-4 space-y-2">
         {navigation.map((item) => {
           const Icon = item.icon;
           const isActive = location === item.href || (item.href === "/dashboard" && location === "/");
-          
+
           return (
             <Link
               key={item.name}
@@ -57,19 +69,16 @@ export default function Sidebar() {
           );
         })}
       </nav>
-      
+
       <div className="absolute bottom-0 w-full p-4 border-t border-gray-200 bg-white">
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
             <User size={16} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">Admin User</p>
-            <p className="text-xs text-gray-500 truncate">Administrator</p>
+            <p className="text-sm font-medium text-gray-900 truncate">{user?.name || "User"}</p>
+            <p className="text-xs text-gray-500 truncate capitalize">{user?.role || "Role"}</p>
           </div>
-          <button className="text-gray-400 hover:text-gray-600">
-            <LogOut size={16} />
-          </button>
         </div>
       </div>
     </aside>

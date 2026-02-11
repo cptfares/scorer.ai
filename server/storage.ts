@@ -1,11 +1,9 @@
-import { 
-  users, phases, startups, evaluationCriteria, juryAssignments, evaluations, decisionLabels,
-  type User, type InsertUser, type Phase, type InsertPhase, type Startup, type InsertStartup,
-  type EvaluationCriteria, type InsertEvaluationCriteria, type JuryAssignment, type InsertJuryAssignment,
-  type Evaluation, type InsertEvaluation, type DecisionLabel, type InsertDecisionLabel
+import { supabaseAdmin } from "./supabase";
+import type {
+  User, InsertUser, Phase, InsertPhase, Startup, InsertStartup,
+  EvaluationCriteria, InsertEvaluationCriteria, JuryAssignment, InsertJuryAssignment,
+  Evaluation, InsertEvaluation, DecisionLabel, InsertDecisionLabel
 } from "@shared/schema";
-import { db } from "./db";
-import { eq, desc, and, sql } from "drizzle-orm";
 
 export interface IStorage {
   // User management
@@ -53,189 +51,363 @@ export interface IStorage {
   getEvaluationStats(phaseId?: number): Promise<any>;
 }
 
+// Helper to convert snake_case DB rows to camelCase for our app types
+function toCamelCase(row: any): any {
+  if (!row) return row;
+  const result: any = {};
+  for (const key of Object.keys(row)) {
+    const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    result[camelKey] = row[key];
+  }
+  return result;
+}
+
+function toSnakeCase(obj: any): any {
+  if (!obj) return obj;
+  const result: any = {};
+  for (const key of Object.keys(obj)) {
+    const snakeKey = key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+    result[snakeKey] = obj[key];
+  }
+  return result;
+}
+
 export class DatabaseStorage implements IStorage {
+  // ── User management ──────────────────────────────────────
+
   async getUser(id: number): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user || undefined;
+    const { data, error } = await supabaseAdmin
+      .from("users")
+      .select("*")
+      .eq("id", id)
+      .single();
+    if (error || !data) return undefined;
+    return toCamelCase(data) as User;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
-    return user || undefined;
+    const { data, error } = await supabaseAdmin
+      .from("users")
+      .select("*")
+      .eq("email", email)
+      .single();
+    if (error || !data) return undefined;
+    return toCamelCase(data) as User;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(insertUser).returning();
-    return user;
+    const { data, error } = await supabaseAdmin
+      .from("users")
+      .insert(toSnakeCase(insertUser))
+      .select()
+      .single();
+    if (error) throw error;
+    return toCamelCase(data) as User;
   }
 
-  async updateUser(id: number, updateUser: Partial<InsertUser>): Promise<User> {
-    const [user] = await db.update(users).set(updateUser).where(eq(users.id, id)).returning();
-    return user;
+  async updateUser(id: number, updateData: Partial<InsertUser>): Promise<User> {
+    const { data, error } = await supabaseAdmin
+      .from("users")
+      .update(toSnakeCase(updateData))
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return toCamelCase(data) as User;
   }
 
   async getUsersByRole(role: string): Promise<User[]> {
-    return await db.select().from(users).where(eq(users.role, role));
+    const { data, error } = await supabaseAdmin
+      .from("users")
+      .select("*")
+      .eq("role", role);
+    if (error) throw error;
+    return (data || []).map(toCamelCase) as User[];
   }
 
+  // ── Phase management ─────────────────────────────────────
+
   async getPhases(): Promise<Phase[]> {
-    return await db.select().from(phases).orderBy(desc(phases.createdAt));
+    const { data, error } = await supabaseAdmin
+      .from("phases")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data || []).map(toCamelCase) as Phase[];
   }
 
   async getActivePhase(): Promise<Phase | undefined> {
-    const [phase] = await db.select().from(phases).where(eq(phases.isActive, true));
-    return phase || undefined;
+    const { data, error } = await supabaseAdmin
+      .from("phases")
+      .select("*")
+      .eq("is_active", true)
+      .single();
+    if (error || !data) return undefined;
+    return toCamelCase(data) as Phase;
   }
 
   async createPhase(insertPhase: InsertPhase): Promise<Phase> {
-    const [phase] = await db.insert(phases).values(insertPhase).returning();
-    return phase;
+    const { data, error } = await supabaseAdmin
+      .from("phases")
+      .insert(toSnakeCase(insertPhase))
+      .select()
+      .single();
+    if (error) throw error;
+    return toCamelCase(data) as Phase;
   }
 
-  async updatePhase(id: number, updatePhase: Partial<InsertPhase>): Promise<Phase> {
-    const [phase] = await db.update(phases).set(updatePhase).where(eq(phases.id, id)).returning();
-    return phase;
+  async updatePhase(id: number, updateData: Partial<InsertPhase>): Promise<Phase> {
+    const { data, error } = await supabaseAdmin
+      .from("phases")
+      .update(toSnakeCase(updateData))
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return toCamelCase(data) as Phase;
   }
+
+  // ── Startup management ───────────────────────────────────
 
   async getStartups(phaseId?: number): Promise<Startup[]> {
+    let query = supabaseAdmin.from("startups").select("*");
     if (phaseId) {
-      return await db.select().from(startups).where(eq(startups.phaseId, phaseId));
+      query = query.eq("phase_id", phaseId);
     }
-    return await db.select().from(startups);
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []).map(toCamelCase) as Startup[];
   }
 
   async getStartup(id: number): Promise<Startup | undefined> {
-    const [startup] = await db.select().from(startups).where(eq(startups.id, id));
-    return startup || undefined;
+    const { data, error } = await supabaseAdmin
+      .from("startups")
+      .select("*")
+      .eq("id", id)
+      .single();
+    if (error || !data) return undefined;
+    return toCamelCase(data) as Startup;
   }
 
   async createStartup(insertStartup: InsertStartup): Promise<Startup> {
-    const [startup] = await db.insert(startups).values(insertStartup).returning();
-    return startup;
+    const { data, error } = await supabaseAdmin
+      .from("startups")
+      .insert(toSnakeCase(insertStartup))
+      .select()
+      .single();
+    if (error) throw error;
+    return toCamelCase(data) as Startup;
   }
 
-  async updateStartup(id: number, updateStartup: Partial<InsertStartup>): Promise<Startup> {
-    const [startup] = await db.update(startups).set(updateStartup).where(eq(startups.id, id)).returning();
-    return startup;
+  async updateStartup(id: number, updateData: Partial<InsertStartup>): Promise<Startup> {
+    const { data, error } = await supabaseAdmin
+      .from("startups")
+      .update(toSnakeCase(updateData))
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return toCamelCase(data) as Startup;
   }
 
   async deleteStartup(id: number): Promise<void> {
-    await db.delete(startups).where(eq(startups.id, id));
+    const { error } = await supabaseAdmin
+      .from("startups")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
   }
 
+  // ── Evaluation criteria ──────────────────────────────────
+
   async getEvaluationCriteria(): Promise<EvaluationCriteria[]> {
-    return await db.select().from(evaluationCriteria).where(eq(evaluationCriteria.isActive, true));
+    const { data, error } = await supabaseAdmin
+      .from("evaluation_criteria")
+      .select("*")
+      .eq("is_active", true);
+    if (error) throw error;
+    return (data || []).map(toCamelCase) as EvaluationCriteria[];
   }
 
   async createEvaluationCriteria(insertCriteria: InsertEvaluationCriteria): Promise<EvaluationCriteria> {
-    const [criteria] = await db.insert(evaluationCriteria).values(insertCriteria).returning();
-    return criteria;
+    const { data, error } = await supabaseAdmin
+      .from("evaluation_criteria")
+      .insert(toSnakeCase(insertCriteria))
+      .select()
+      .single();
+    if (error) throw error;
+    return toCamelCase(data) as EvaluationCriteria;
   }
 
-  async updateEvaluationCriteria(id: number, updateCriteria: Partial<InsertEvaluationCriteria>): Promise<EvaluationCriteria> {
-    const [criteria] = await db.update(evaluationCriteria).set(updateCriteria).where(eq(evaluationCriteria.id, id)).returning();
-    return criteria;
+  async updateEvaluationCriteria(id: number, updateData: Partial<InsertEvaluationCriteria>): Promise<EvaluationCriteria> {
+    const { data, error } = await supabaseAdmin
+      .from("evaluation_criteria")
+      .update(toSnakeCase(updateData))
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return toCamelCase(data) as EvaluationCriteria;
   }
+
+  // ── Jury assignments ─────────────────────────────────────
 
   async getJuryAssignments(juryId?: number, phaseId?: number): Promise<JuryAssignment[]> {
-    if (juryId && phaseId) {
-      return await db.select().from(juryAssignments)
-        .where(and(eq(juryAssignments.juryId, juryId), eq(juryAssignments.phaseId, phaseId)));
-    } else if (juryId) {
-      return await db.select().from(juryAssignments)
-        .where(eq(juryAssignments.juryId, juryId));
-    } else if (phaseId) {
-      return await db.select().from(juryAssignments)
-        .where(eq(juryAssignments.phaseId, phaseId));
-    }
-    
-    return await db.select().from(juryAssignments);
+    let query = supabaseAdmin.from("jury_assignments").select("*");
+    if (juryId) query = query.eq("jury_id", juryId);
+    if (phaseId) query = query.eq("phase_id", phaseId);
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []).map(toCamelCase) as JuryAssignment[];
   }
 
   async createJuryAssignment(insertAssignment: InsertJuryAssignment): Promise<JuryAssignment> {
-    const [assignment] = await db.insert(juryAssignments).values(insertAssignment).returning();
-    return assignment;
+    const { data, error } = await supabaseAdmin
+      .from("jury_assignments")
+      .insert(toSnakeCase(insertAssignment))
+      .select()
+      .single();
+    if (error) throw error;
+    return toCamelCase(data) as JuryAssignment;
   }
 
   async deleteJuryAssignment(id: number): Promise<void> {
-    await db.delete(juryAssignments).where(eq(juryAssignments.id, id));
+    const { error } = await supabaseAdmin
+      .from("jury_assignments")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
   }
 
+  // ── Evaluations ──────────────────────────────────────────
+
   async getEvaluations(phaseId?: number): Promise<Evaluation[]> {
-    if (phaseId) {
-      return await db.select().from(evaluations).where(eq(evaluations.phaseId, phaseId));
-    }
-    return await db.select().from(evaluations);
+    let query = supabaseAdmin.from("evaluations").select("*");
+    if (phaseId) query = query.eq("phase_id", phaseId);
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []).map(toCamelCase) as Evaluation[];
   }
 
   async getEvaluation(juryId: number, startupId: number): Promise<Evaluation | undefined> {
-    const [evaluation] = await db.select()
-      .from(evaluations)
-      .where(and(eq(evaluations.juryId, juryId), eq(evaluations.startupId, startupId)));
-    return evaluation || undefined;
+    const { data, error } = await supabaseAdmin
+      .from("evaluations")
+      .select("*")
+      .eq("jury_id", juryId)
+      .eq("startup_id", startupId)
+      .single();
+    if (error || !data) return undefined;
+    return toCamelCase(data) as Evaluation;
   }
 
   async createEvaluation(insertEvaluation: InsertEvaluation): Promise<Evaluation> {
-    const [evaluation] = await db.insert(evaluations).values(insertEvaluation).returning();
-    return evaluation;
+    const { data, error } = await supabaseAdmin
+      .from("evaluations")
+      .insert(toSnakeCase(insertEvaluation))
+      .select()
+      .single();
+    if (error) throw error;
+    return toCamelCase(data) as Evaluation;
   }
 
-  async updateEvaluation(id: number, updateEvaluation: Partial<InsertEvaluation>): Promise<Evaluation> {
-    const [evaluation] = await db.update(evaluations)
-      .set({ ...updateEvaluation, updatedAt: new Date() })
-      .where(eq(evaluations.id, id))
-      .returning();
-    return evaluation;
+  async updateEvaluation(id: number, updateData: Partial<InsertEvaluation>): Promise<Evaluation> {
+    const { data, error } = await supabaseAdmin
+      .from("evaluations")
+      .update({ ...toSnakeCase(updateData), updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return toCamelCase(data) as Evaluation;
   }
+
+  // ── Decision labels ──────────────────────────────────────
 
   async getDecisionLabels(): Promise<DecisionLabel[]> {
-    return await db.select().from(decisionLabels);
+    const { data, error } = await supabaseAdmin
+      .from("decision_labels")
+      .select("*");
+    if (error) throw error;
+    return (data || []).map(toCamelCase) as DecisionLabel[];
   }
 
   async createDecisionLabel(insertLabel: InsertDecisionLabel): Promise<DecisionLabel> {
-    const [label] = await db.insert(decisionLabels).values(insertLabel).returning();
-    return label;
+    const { data, error } = await supabaseAdmin
+      .from("decision_labels")
+      .insert(toSnakeCase(insertLabel))
+      .select()
+      .single();
+    if (error) throw error;
+    return toCamelCase(data) as DecisionLabel;
   }
 
+  // ── Analytics (computed server-side) ─────────────────────
+
   async getStartupScores(phaseId?: number): Promise<any[]> {
-    const baseQuery = db
-      .select({
-        startupId: startups.id,
-        startupName: startups.name,
-        category: startups.category,
-        avgScore: sql<number>`AVG(CAST(jsonb_extract_path_text(${evaluations.scores}, 'average') AS FLOAT))`,
-        evaluationCount: sql<number>`COUNT(${evaluations.id})`,
-        decision: evaluations.decision,
-      })
-      .from(startups)
-      .leftJoin(evaluations, eq(startups.id, evaluations.startupId))
-      .groupBy(startups.id, startups.name, startups.category, evaluations.decision);
+    // Fetch startups
+    let startupQuery = supabaseAdmin.from("startups").select("*");
+    if (phaseId) startupQuery = startupQuery.eq("phase_id", phaseId);
+    const { data: startups, error: sErr } = await startupQuery;
+    if (sErr) throw sErr;
 
-    if (phaseId) {
-      return await baseQuery.where(eq(startups.phaseId, phaseId));
-    }
+    // Fetch evaluations
+    let evalQuery = supabaseAdmin.from("evaluations").select("*");
+    if (phaseId) evalQuery = evalQuery.eq("phase_id", phaseId);
+    const { data: evaluations, error: eErr } = await evalQuery;
+    if (eErr) throw eErr;
 
-    return await baseQuery;
+    // Compute scores per startup
+    return (startups || []).map((s: any) => {
+      const startupEvals = (evaluations || []).filter((e: any) => e.startup_id === s.id);
+      const scores = startupEvals
+        .map((e: any) => {
+          if (!e.scores || typeof e.scores !== 'object') return null;
+          const values = Object.values(e.scores).map(v => typeof v === 'number' ? v : parseFloat(v as string)).filter(v => !isNaN(v));
+          return values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : null;
+        })
+        .filter((v: any) => v !== null);
+
+      return {
+        startupId: s.id,
+        startupName: s.name,
+        category: s.category,
+        avgScore: scores.length > 0 ? scores.reduce((a: number, b: number) => a + b, 0) / scores.length : null,
+        evaluationCount: startupEvals.length,
+        decision: startupEvals.length > 0 ? startupEvals[0].decision : null,
+      };
+    });
   }
 
   async getEvaluationStats(phaseId?: number): Promise<any> {
-    const baseQuery = db
-      .select({
-        totalStartups: sql<number>`COUNT(DISTINCT ${startups.id})`,
-        totalEvaluations: sql<number>`COUNT(${evaluations.id})`,
-        completedEvaluations: sql<number>`COUNT(CASE WHEN ${evaluations.isCompleted} THEN 1 END)`,
-        avgScore: sql<number>`AVG(CAST(jsonb_extract_path_text(${evaluations.scores}, 'average') AS FLOAT))`,
+    // Fetch startups
+    let startupQuery = supabaseAdmin.from("startups").select("id");
+    if (phaseId) startupQuery = startupQuery.eq("phase_id", phaseId);
+    const { data: startups, error: sErr } = await startupQuery;
+    if (sErr) throw sErr;
+
+    // Fetch evaluations
+    let evalQuery = supabaseAdmin.from("evaluations").select("*");
+    if (phaseId) evalQuery = evalQuery.eq("phase_id", phaseId);
+    const { data: evaluations, error: eErr } = await evalQuery;
+    if (eErr) throw eErr;
+
+    const completedEvals = (evaluations || []).filter((e: any) => e.is_completed);
+    const allScores = (evaluations || [])
+      .map((e: any) => {
+        if (!e.scores || typeof e.scores !== 'object') return null;
+        const values = Object.values(e.scores).map(v => typeof v === 'number' ? v : parseFloat(v as string)).filter(v => !isNaN(v));
+        return values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : null;
       })
-      .from(startups)
-      .leftJoin(evaluations, eq(startups.id, evaluations.startupId));
+      .filter((v: any) => v !== null);
 
-    if (phaseId) {
-      const [stats] = await baseQuery.where(eq(startups.phaseId, phaseId));
-      return stats;
-    }
-
-    const [stats] = await baseQuery;
-    return stats;
+    return {
+      totalStartups: (startups || []).length,
+      totalEvaluations: (evaluations || []).length,
+      completedEvaluations: completedEvals.length,
+      avgScore: allScores.length > 0
+        ? allScores.reduce((a: number, b: number) => a + b, 0) / allScores.length
+        : null,
+    };
   }
 }
 
