@@ -8,6 +8,8 @@ export type User = {
   password: string;
   name: string;
   role: string;
+  phoneNumber: string | null;
+  bio: string | null;
   isActive: boolean | null;
   createdAt: string | null;
 };
@@ -34,6 +36,7 @@ export type Startup = {
   website: string | null;
   logoUrl: string | null;
   phaseId: number | null;
+  userId: number | null;
   finalDecision: string | null;
   createdAt: string | null;
 };
@@ -82,6 +85,8 @@ export const insertUserSchema = z.object({
   password: z.string(),
   name: z.string(),
   role: z.string().default("jury"),
+  phoneNumber: z.string().optional(),
+  bio: z.string().optional(),
   isActive: z.boolean().optional().default(true),
 });
 
@@ -94,17 +99,18 @@ export const insertPhaseSchema = z.object({
 });
 
 export const insertStartupSchema = z.object({
-  name: z.string(),
-  description: z.string().optional(),
-  category: z.string(),
-  founded: z.string().optional(),
-  teamSize: z.string().optional(),
-  stage: z.string().optional(),
-  fundingSeek: z.string().optional(),
-  website: z.string().optional(),
-  logoUrl: z.string().optional(),
-  phaseId: z.number().optional(),
-  finalDecision: z.string().optional(),
+  name: z.string().min(1, "Name is required"),
+  description: z.string().optional().nullable(),
+  category: z.string().min(1, "Category is required"),
+  founded: z.string().optional().nullable(),
+  teamSize: z.coerce.string().optional().nullable(),
+  stage: z.string().optional().nullable(),
+  fundingSeek: z.coerce.string().optional().nullable(),
+  website: z.string().optional().nullable(),
+  logoUrl: z.string().optional().nullable(),
+  phaseId: z.number(),
+  userId: z.number().optional().nullable(),
+  finalDecision: z.string().optional().nullable(),
 });
 
 export const insertEvaluationCriteriaSchema = z.object({

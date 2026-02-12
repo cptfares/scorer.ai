@@ -11,7 +11,8 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, user: Partial<InsertUser>): Promise<User>;
-  getUsersByRole(role: string): Promise<User[]>;
+  deleteUser(id: number): Promise<void>;
+  getAllUsers(): Promise<User[]>; // Added getAllUsers to interface
 
   // Phase management
   getPhases(): Promise<Phase[]>;
@@ -23,7 +24,7 @@ export interface IStorage {
   getStartups(phaseId?: number): Promise<Startup[]>;
   getStartup(id: number): Promise<Startup | undefined>;
   createStartup(startup: InsertStartup): Promise<Startup>;
-  updateStartup(id: number, startup: Partial<InsertStartup>): Promise<Startup>;
+  updateStartup(id: number, startup: Partial<Startup>): Promise<Startup>;
   deleteStartup(id: number): Promise<void>;
 
   // Evaluation criteria
@@ -116,11 +117,27 @@ export class DatabaseStorage implements IStorage {
     return toCamelCase(data) as User;
   }
 
+  async deleteUser(id: number): Promise<void> {
+    const { error } = await supabaseAdmin
+      .from("users")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
+  }
+
   async getUsersByRole(role: string): Promise<User[]> {
     const { data, error } = await supabaseAdmin
       .from("users")
       .select("*")
       .eq("role", role);
+    if (error) throw error;
+    return (data || []).map(toCamelCase) as User[];
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    const { data, error } = await supabaseAdmin
+      .from("users")
+      .select("*");
     if (error) throw error;
     return (data || []).map(toCamelCase) as User[];
   }
@@ -199,7 +216,7 @@ export class DatabaseStorage implements IStorage {
     return toCamelCase(data) as Startup;
   }
 
-  async updateStartup(id: number, updateData: Partial<InsertStartup>): Promise<Startup> {
+  async updateStartup(id: number, updateData: Partial<Startup>): Promise<Startup> {
     const { data, error } = await supabaseAdmin
       .from("startups")
       .update(toSnakeCase(updateData))
@@ -211,6 +228,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteStartup(id: number): Promise<void> {
+    // Delete related evaluations first
+    const { error: evalError } = await supabaseAdmin
+      .from("evaluations")
+      .delete()
+      .eq("startup_id", id);
+    if (evalError) throw evalError;
+
+    // Delete related jury assignments
+    const { error: assignError } = await supabaseAdmin
+      .from("jury_assignments")
+      .delete()
+      .eq("startup_id", id);
+    if (assignError) throw assignError;
+
+    // Finally delete the startup
     const { error } = await supabaseAdmin
       .from("startups")
       .delete()
@@ -358,20 +390,20 @@ export class DatabaseStorage implements IStorage {
 
     // Compute scores per startup
     return (startups || []).map((s: any) => {
-      const startupEvals = (evaluations || []).filter((e: any) => e.startup_id === s.id);
+      const startupEvals = (evaluations || []).filter((e: any) => e.startupId === s.id || e.startup_id === s.id);
       const scores = startupEvals
         .map((e: any) => {
           if (!e.scores || typeof e.scores !== 'object') return null;
-          const values = Object.values(e.scores).map(v => typeof v === 'number' ? v : parseFloat(v as string)).filter(v => !isNaN(v));
-          return values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : null;
+          const values = Object.values(e.scores).map(v => typeof v === 'number' ? v : parseFloat(v as string)).filter((v): v is number => !isNaN(v));
+          return values.length > 0 ? (values.reduce((a: number, b: number) => a + b, 0) / values.length) : null;
         })
-        .filter((v: any) => v !== null);
+        .filter((v: number | null): v is number => v !== null);
 
       return {
         startupId: s.id,
         startupName: s.name,
         category: s.category,
-        avgScore: scores.length > 0 ? scores.reduce((a: number, b: number) => a + b, 0) / scores.length : null,
+        avgScore: scores.length > 0 ? (scores.reduce((a: number, b: number) => a + b, 0) / scores.length) : null,
         evaluationCount: startupEvals.length,
         decision: startupEvals.length > 0 ? startupEvals[0].decision : null,
       };
@@ -405,7 +437,7 @@ export class DatabaseStorage implements IStorage {
       totalEvaluations: (evaluations || []).length,
       completedEvaluations: completedEvals.length,
       avgScore: allScores.length > 0
-        ? allScores.reduce((a: number, b: number) => a + b, 0) / allScores.length
+        ? allScores.filter((v): v is number => v !== null).reduce((a: number, b: number) => a + b, 0) / allScores.length
         : null,
     };
   }

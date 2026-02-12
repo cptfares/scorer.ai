@@ -11,11 +11,13 @@ import {
   User
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
+import { useToast } from "@/hooks/use-toast";
 
 const adminNavigation = [
   { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
   { name: "Startups", href: "/startups", icon: Rocket },
-  { name: "Jury Management", href: "/jury", icon: Users },
+  { name: "User Management", href: "/jury", icon: Users },
   { name: "Evaluations", href: "/evaluations", icon: ClipboardCheck },
   { name: "Analytics", href: "/analytics", icon: TrendingUp },
   { name: "Reports", href: "/reports", icon: FileText },
@@ -26,10 +28,29 @@ const juryNavigation = [
 ];
 
 export default function Sidebar() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
+  const { toast } = useToast();
   const { data: authData } = useQuery<any>({
     queryKey: ["/api/auth/me"],
   });
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      localStorage.removeItem("user");
+      setLocation("/login");
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Logout failed",
+        description: error.message || "An error occurred during logout",
+        variant: "destructive",
+      });
+    }
+  };
 
   const user = authData?.user;
   const isAdmin = user?.role === 'admin';
@@ -71,7 +92,7 @@ export default function Sidebar() {
       </nav>
 
       <div className="absolute bottom-0 w-full p-4 border-t border-gray-200 bg-white">
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3 mb-4">
           <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
             <User size={16} />
           </div>
@@ -80,6 +101,13 @@ export default function Sidebar() {
             <p className="text-xs text-gray-500 truncate capitalize">{user?.role || "Role"}</p>
           </div>
         </div>
+        <button
+          onClick={handleLogout}
+          className="flex items-center space-x-3 w-full px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+        >
+          <LogOut size={18} />
+          <span>Logout</span>
+        </button>
       </div>
     </aside>
   );

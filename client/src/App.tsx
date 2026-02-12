@@ -12,6 +12,7 @@ import Evaluations from "@/pages/evaluations";
 import EvaluationForm from "@/pages/evaluation-form";
 import JuryDashboard from "@/pages/jury-dashboard";
 import SetupPassword from "@/pages/setup-password";
+import FounderOnboarding from "@/pages/founder-onboarding";
 import NotFound from "@/pages/not-found";
 
 import Analytics from "@/pages/analytics";
@@ -65,6 +66,11 @@ function Router() {
       <Route path="/evaluate/:startupId">
         <ProtectedRoute>
           <EvaluationForm />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/founder-onboarding">
+        <ProtectedRoute>
+          <FounderOnboarding />
         </ProtectedRoute>
       </Route>
       <Route component={NotFound} />

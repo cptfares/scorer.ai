@@ -10,18 +10,20 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertUserSchema, insertJuryAssignmentSchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, UserPlus, Users, CheckCircle, Settings } from "lucide-react";
+import { Mail, UserPlus, Users, CheckCircle, Settings, Trash2, Rocket } from "lucide-react";
 import { z } from "zod";
 
 const juryInviteSchema = z.object({
   email: z.string().email("Invalid email address"),
   name: z.string().min(1, "Name is required"),
+  role: z.enum(["jury", "founder"]).default("jury"),
 });
 
 export default function Jury() {
@@ -31,9 +33,12 @@ export default function Jury() {
   const [selectedStartups, setSelectedStartups] = useState<number[]>([]);
   const { toast } = useToast();
 
-  const { data: juryMembers, isLoading } = useQuery({
-    queryKey: ["/api/users?role=jury"],
+  const { data: users, isLoading } = useQuery({
+    queryKey: ["/api/users"], // Fetch all users to filter by role
   });
+
+  const juryMembers = Array.isArray(users) ? users.filter((u: any) => u.role === "jury") : [];
+  const founders = Array.isArray(users) ? users.filter((u: any) => u.role === "founder") : [];
 
   const { data: startups } = useQuery<any[]>({
     queryKey: ["/api/startups"],
@@ -52,27 +57,45 @@ export default function Jury() {
     defaultValues: {
       email: "",
       name: "",
+      role: "jury",
     },
   });
 
   const inviteMutation = useMutation({
     mutationFn: async (data: z.infer<typeof juryInviteSchema>) => {
-      const response = await apiRequest("POST", "/api/jury/invite", data);
+      const response = await apiRequest("POST", "/api/users/invite", data);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       setIsDialogOpen(false);
       form.reset();
       toast({
-        title: "Jury Member Invited",
-        description: "An invitation email has been sent to the jury member to set up their account.",
+        title: `${variables.role.charAt(0).toUpperCase() + variables.role.slice(1)} Invited`,
+        description: `An invitation email has been sent to ${variables.name}.`,
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to send invitation",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/users/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({ title: "User deleted successfully" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete user",
         variant: "destructive",
       });
     },
@@ -133,9 +156,10 @@ export default function Jury() {
 
       <main className="flex-1 ml-64 min-h-screen">
         <Header
-          title="Jury Management"
-          subtitle="Manage jury members and assignments"
+          title="User Management"
+          subtitle="Manage all users, including jury members and founders"
           showAddButton={true}
+          addButtonLabel="Invite New User"
           onAddClick={() => setIsDialogOpen(true)}
         />
 
@@ -148,7 +172,7 @@ export default function Jury() {
                   <div>
                     <p className="text-sm font-medium text-gray-600">Total Jury</p>
                     <p className="text-3xl font-bold text-gray-900 mt-2">
-                      {Array.isArray(juryMembers) ? juryMembers.length : 0}
+                      {juryMembers.length}
                     </p>
                   </div>
                   <div className="w-12 h-12 bg-[hsl(var(--info-100))] rounded-lg flex items-center justify-center">
@@ -162,13 +186,13 @@ export default function Jury() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">Active Members</p>
+                    <p className="text-sm font-medium text-gray-600">Total Founders</p>
                     <p className="text-3xl font-bold text-gray-900 mt-2">
-                      {Array.isArray(juryMembers) ? juryMembers.filter((j: any) => j.isActive).length : 0}
+                      {founders.length}
                     </p>
                   </div>
-                  <div className="w-12 h-12 bg-[hsl(var(--success-100))] rounded-lg flex items-center justify-center">
-                    <CheckCircle className="text-[hsl(var(--success-600))]" size={24} />
+                  <div className="w-12 h-12 bg-[hsl(var(--primary-100))] rounded-lg flex items-center justify-center">
+                    <Rocket className="text-[hsl(var(--primary-600))]" size={24} />
                   </div>
                 </div>
               </CardContent>
@@ -178,95 +202,173 @@ export default function Jury() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">Avg Assignments</p>
+                    <p className="text-sm font-medium text-gray-600">Active Users</p>
                     <p className="text-3xl font-bold text-gray-900 mt-2">
-                      {Array.isArray(startups) && startups.length && Array.isArray(juryMembers) && juryMembers.length ?
-                        Math.ceil(startups.length / juryMembers.length) : 0}
+                      {Array.isArray(users) ? users.filter((u: any) => u.isActive).length : 0}
                     </p>
                   </div>
-                  <div className="w-12 h-12 bg-[hsl(var(--primary-100))] rounded-lg flex items-center justify-center">
-                    <Mail className="text-[hsl(var(--primary-600))]" size={24} />
+                  <div className="w-12 h-12 bg-[hsl(var(--success-100))] rounded-lg flex items-center justify-center">
+                    <CheckCircle className="text-[hsl(var(--success-600))]" size={24} />
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Jury Members List */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Jury Members</CardTitle>
-                <Button
-                  onClick={() => setIsDialogOpen(true)}
-                  className="bg-[hsl(var(--primary-500))] hover:bg-[hsl(var(--primary-600))]"
-                >
-                  <UserPlus size={16} className="mr-2" />
-                  Invite Jury Member
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="space-y-4">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg animate-pulse">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-12 h-12 bg-gray-300 rounded-full"></div>
-                        <div className="space-y-2">
-                          <div className="h-4 bg-gray-300 rounded w-32"></div>
-                          <div className="h-3 bg-gray-300 rounded w-48"></div>
-                        </div>
-                      </div>
+          <Tabs defaultValue="jury" className="space-y-6">
+            <TabsList>
+              <TabsTrigger value="jury">Jury Members</TabsTrigger>
+              <TabsTrigger value="founders">Founders</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="jury">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Jury Members</CardTitle>
+                    <Button
+                      onClick={() => {
+                        form.setValue("role", "jury");
+                        setIsDialogOpen(true);
+                      }}
+                      className="bg-[hsl(var(--primary-500))] hover:bg-[hsl(var(--primary-600))]"
+                    >
+                      <UserPlus size={16} className="mr-2" />
+                      Invite Jury Member
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {isLoading ? (
+                    <div className="space-y-4">
+                      {[...Array(3)].map((_, i) => (
+                        <div key={i} className="h-16 bg-gray-100 animate-pulse rounded-lg" />
+                      ))}
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {Array.isArray(juryMembers) && juryMembers.map((member: any) => (
-                    <div key={member.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-12 h-12 bg-[hsl(var(--primary-100))] rounded-full flex items-center justify-center">
-                          <span className="text-[hsl(var(--primary-600))] font-bold">
-                            {member.name.charAt(0)}
-                          </span>
+                  ) : (
+                    <div className="space-y-4">
+                      {juryMembers.map((member: any) => (
+                        <div key={member.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg group">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-[hsl(var(--primary-100))] rounded-full flex items-center justify-center">
+                              <span className="text-[hsl(var(--primary-600))] font-bold">
+                                {member.name.charAt(0)}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{member.name}</p>
+                              <p className="text-sm text-gray-600">{member.email}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <Badge variant={member.isActive ? "default" : "secondary"}>
+                              {member.isActive ? "Active" : "Inactive"}
+                            </Badge>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenAssignDialog(member)}
+                            >
+                              Assign Startups
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-gray-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => {
+                                if (confirm(`Are you sure you want to delete ${member.name}?`)) {
+                                  deleteMutation.mutate(member.id);
+                                }
+                              }}
+                            >
+                              <Trash2 size={16} />
+                            </Button>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{member.name}</p>
-                          <p className="text-sm text-gray-600">{member.email}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <Badge
-                          variant={member.isActive ? "default" : "secondary"}
-                          className={member.isActive ? "bg-[hsl(var(--success))] hover:bg-[hsl(var(--success))]" : ""}
-                        >
-                          {member.isActive ? "Active" : "Inactive"}
-                        </Badge>
-                        <div className="flex flex-col items-end">
-                          <span className="text-xs text-gray-500 mb-1">
-                            {allAssignments?.filter((a: any) => a.juryId === member.id).length || 0} Startups
-                          </span>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenAssignDialog(member)}
-                          >
-                            Assign Startups
-                          </Button>
-                        </div>
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="founders">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Founders</CardTitle>
+                    <Button
+                      onClick={() => {
+                        form.setValue("role", "founder");
+                        setIsDialogOpen(true);
+                      }}
+                      className="bg-[hsl(var(--primary-500))] hover:bg-[hsl(var(--primary-600))]"
+                    >
+                      <UserPlus size={16} className="mr-2" />
+                      Invite Founder
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {isLoading ? (
+                    <div className="space-y-4">
+                      {[...Array(3)].map((_, i) => (
+                        <div key={i} className="h-16 bg-gray-100 animate-pulse rounded-lg" />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {founders.map((member: any) => {
+                        const founderStartup = startups?.find((s: any) => s.userId === member.id);
+                        return (
+                          <div key={member.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg group">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-10 h-10 bg-[hsl(var(--info-100))] rounded-full flex items-center justify-center">
+                                <span className="text-[hsl(var(--info-600))] font-bold">
+                                  {member.name.charAt(0)}
+                                </span>
+                              </div>
+                              <div>
+                                <p className="font-medium text-gray-900">{member.name}</p>
+                                <p className="text-sm text-gray-600">{member.email}</p>
+                                {founderStartup && (
+                                  <p className="text-xs font-semibold text-[hsl(var(--primary-600))] mt-1">
+                                    Startup: {founderStartup.name}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                              <Badge variant={member.isActive ? "default" : "secondary"}>
+                                {member.isActive ? "Active" : "Inactive"}
+                              </Badge>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-gray-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => {
+                                  if (confirm(`Are you sure you want to delete ${member.name}?`)) {
+                                    deleteMutation.mutate(member.id);
+                                  }
+                                }}
+                              >
+                                <Trash2 size={16} />
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
 
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Invite Jury Member</DialogTitle>
+                <DialogTitle>Invite New User</DialogTitle>
               </DialogHeader>
 
               <Form {...form}>
@@ -294,6 +396,28 @@ export default function Jury() {
                         <FormControl>
                           <Input placeholder="Enter email address" type="email" {...field} />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="role"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Role</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select role" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="jury">Jury Member</SelectItem>
+                            <SelectItem value="founder">Founder</SelectItem>
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}

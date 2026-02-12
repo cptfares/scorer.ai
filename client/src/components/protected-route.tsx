@@ -29,9 +29,13 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
     } else if (!isLoading && requireAdmin && authData?.user?.role !== 'admin') {
       if (authData?.user?.role === 'jury') {
         setLocation("/jury-dashboard");
+      } else if (authData?.user?.role === 'founder') {
+        setLocation("/founder-onboarding");
       } else {
         setLocation("/login");
       }
+    } else if (!isLoading && authData?.user?.role === 'founder' && window.location.pathname !== '/founder-onboarding') {
+      setLocation("/founder-onboarding");
     }
   }, [isLoading, error, authData, setLocation, requireAdmin]);
 

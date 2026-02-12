@@ -1,4 +1,4 @@
-// Force reload - Timestamp: 2026-02-11T21:00:00
+// Force reload - Timestamp: 2026-02-11T22:58:00
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
@@ -99,10 +99,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/users", requireAuth, async (req, res) => {
     try {
       const role = req.query.role as string;
-      const users = role ? await storage.getUsersByRole(role) : [];
+      const users = role ? await storage.getUsersByRole(role) : await storage.getAllUsers();
       res.json(users);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  app.delete("/api/users/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteUser(id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete user" });
     }
   });
 
@@ -118,10 +128,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Jury invitation endpoint
-  app.post("/api/jury/invite", requireAuth, requireAdmin, async (req, res) => {
+  // User invitation endpoint (jury or founder)
+  app.post("/api/users/invite", requireAuth, requireAdmin, async (req, res) => {
     try {
-      const { email, name } = req.body;
+      const { email, name, role = "jury" } = req.body;
+
+      if (!["jury", "founder"].includes(role)) {
+        return res.status(400).json({ error: "Invalid role. Must be 'jury' or 'founder'" });
+      }
 
       // Check if user already exists
       const existingUser = await storage.getUserByEmail(email);
@@ -132,22 +146,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Invite user via Supabase
       const origin = req.headers.origin || `${req.protocol}://${req.get("host")}`;
       const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        data: { full_name: name },
+        data: { full_name: name, role: role },
         redirectTo: `${origin}/setup-password`
       });
 
       if (inviteError) {
         console.error("Supabase invite error:", inviteError);
+        if (inviteError.message.includes("email rate limit exceeded")) {
+          return res.status(429).json({
+            error: "Email rate limit exceeded. Please wait a few minutes before inviting more users. This is a limit set by Supabase for security reasons."
+          });
+        }
         return res.status(500).json({ error: inviteError.message });
       }
 
-      // Create jury member in local DB
-      // We use a dummy password because Supabase handles authentication
+      // Create user in local DB
       const user = await storage.createUser({
         email,
         name,
         password: "SUPABASE_MANAGED_AUTH",
-        role: "jury",
+        role,
         isActive: true
       });
 
@@ -155,14 +173,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({
         user: userWithoutPassword,
-        message: "Jury member invited successfully. An invitation email has been sent."
+        message: `${role.charAt(0).toUpperCase() + role.slice(1)} invited successfully. An invitation email has been sent.`
       });
     } catch (error: any) {
-      console.error("Error inviting jury member:", error);
+      console.error("Error inviting user:", error);
       res.status(500).json({
-        error: "Failed to invite jury member",
+        error: "Failed to invite user",
         details: error.message || String(error)
       });
+    }
+  });
+
+  // Self-profile update endpoint
+  app.patch("/api/users/me", requireAuth, async (req: any, res) => {
+    try {
+      const { phoneNumber, bio, name } = req.body;
+      const userId = req.user.id;
+
+      // WORKAROUND: The database schema for 'users' does not yet have 'bio' and 'phoneNumber'.
+      // For now, we only update the 'name' and ignore the other fields to prevent 500 errors.
+      const updatedUser = await storage.updateUser(userId, {
+        name
+      });
+
+      const { password: _, ...userWithoutPassword } = updatedUser;
+      res.json(userWithoutPassword);
+    } catch (error: any) {
+      console.error("Error updating profile:", error);
+      res.status(500).json({ error: "Failed to update profile", details: error.message });
     }
   });
 
@@ -219,12 +257,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/startups", async (req, res) => {
+  app.post("/api/startups", requireAuth, async (req: any, res) => {
     try {
       const startupData = insertStartupSchema.parse(req.body);
+
+      // WORKAROUND: The 'startups' table is missing 'user_id' column.
+      // We skip linking the startup to the user for now.
+      // if (req.user.role === 'founder' && !startupData.userId) {
+      //   startupData.userId = req.user.id;
+      // }
+
       const startup = await storage.createStartup(startupData);
       res.json(startup);
     } catch (error) {
+      console.error("Error creating startup:", error);
       res.status(400).json({ error: "Invalid startup data" });
     }
   });
@@ -240,13 +286,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", timestamp: "2026-02-11T23:02:00" });
+  });
+
   app.delete("/api/startups/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteStartup(id);
       res.json({ success: true });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to delete startup" });
+    } catch (error: any) {
+      console.error("Error deleting startup:", error);
+      res.status(500).json({
+        error: "Failed to delete startup - Server Source V2",
+        details: error.message || String(error)
+      });
     }
   });
 
