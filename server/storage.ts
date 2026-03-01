@@ -411,8 +411,8 @@ export class DatabaseStorage implements IStorage {
 
     // Compute scores per startup
     return (startups || []).map((s: any) => {
-      const s = (evaluations || []).filter((e: any) => e.startupId === s.id || e.startup_id === s.id);
-      const scores = s
+      const startupEvals = (evaluations || []).filter((e: any) => e.startupId === s.id || e.startup_id === s.id);
+      const scores = startupEvals
         .map((e: any) => {
           if (!e.scores || typeof e.scores !== 'object') return null;
           const values = Object.values(e.scores).map(v => typeof v === 'number' ? v : parseFloat(v as string)).filter((v): v is number => !isNaN(v));
@@ -425,8 +425,8 @@ export class DatabaseStorage implements IStorage {
         startupName: s.name,
         category: s.category,
         avgScore: scores.length > 0 ? (scores.reduce((a: number, b: number) => a + b, 0) / scores.length) : null,
-        evaluationCount: s.length,
-        decision: s.length > 0 ? s[0].decision : null,
+        evaluationCount: startupEvals.length,
+        decision: startupEvals.length > 0 ? startupEvals[0].decision : null,
       };
     });
   }
