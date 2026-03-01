@@ -128,7 +128,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // User invitation endpoint (jury or founder)
+  // User invitation endpoint (jury or founder) with auto-generated password
   app.post("/api/users/invite", requireAuth, requireAdmin, async (req, res) => {
     try {
       const { email, name, role = "jury" } = req.body;
@@ -143,28 +143,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "User with this email already exists" });
       }
 
-      // Invite user via Supabase
-      const origin = req.headers.origin || `${req.protocol}://${req.get("host")}`;
-      const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        data: { full_name: name, role: role },
-        redirectTo: `${origin}/setup-password`
+      // Generate a random password
+      const generatedPassword = Math.random().toString(36).slice(-10);
+
+      // Create user via Supabase admin API (auto-confirms email)
+      const { data: userData, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password: generatedPassword,
+        email_confirm: true,
+        user_metadata: { full_name: name, role: role }
       });
 
-      if (inviteError) {
-        console.error("Supabase invite error:", inviteError);
-        if (inviteError.message.includes("email rate limit exceeded")) {
-          return res.status(429).json({
-            error: "Email rate limit exceeded. Please wait a few minutes before inviting more users. This is a limit set by Supabase for security reasons."
-          });
-        }
-        return res.status(500).json({ error: inviteError.message });
+      if (createError) {
+        console.error("Supabase create error:", createError);
+        return res.status(500).json({ error: createError.message });
       }
+
+      // Hash the generated password for our local DB 
+      // (Though we mostly rely on Supabase for auth, it's good practice to keep a hashed copy if needed for legacy compatibility)
+      const hashedPassword = await bcrypt.hash(generatedPassword, 10);
 
       // Create user in local DB
       const user = await storage.createUser({
         email,
         name,
-        password: "SUPABASE_MANAGED_AUTH",
+        password: hashedPassword, // Store hashed generated password
         role,
         isActive: true
       });
@@ -173,12 +176,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({
         user: userWithoutPassword,
-        message: `${role.charAt(0).toUpperCase() + role.slice(1)} invited successfully. An invitation email has been sent.`
+        password: generatedPassword, // Send the plaintext password back ONCE for the admin to copy
+        message: `${role.charAt(0).toUpperCase() + role.slice(1)} created successfully.`
       });
     } catch (error: any) {
-      console.error("Error inviting user:", error);
+      console.error("Error creating user:", error);
       res.status(500).json({
-        error: "Failed to invite user",
+        error: "Failed to create user",
         details: error.message || String(error)
       });
     }
@@ -190,10 +194,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { phoneNumber, bio, name } = req.body;
       const userId = req.user.id;
 
-      // WORKAROUND: The database schema for 'users' does not yet have 'bio' and 'phoneNumber'.
-      // For now, we only update the 'name' and ignore the other fields to prevent 500 errors.
+      // Fixed: The database schema for 'users' should have 'bio' and 'phoneNumber'.
       const updatedUser = await storage.updateUser(userId, {
-        name
+        name,
+        phoneNumber,
+        bio
       });
 
       const { password: _, ...userWithoutPassword } = updatedUser;
@@ -244,6 +249,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/startups/me", requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const startup = await storage.getStartupByUserId(userId);
+      if (!startup) {
+        return res.status(404).json({ error: "No startup found for this user" });
+      }
+      res.json(startup);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch your startup" });
+    }
+  });
+
   app.get("/api/startups/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -257,16 +275,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/startups/:id/evaluations", requireAuth, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const startup = await storage.getStartup(id);
+
+      if (!startup) {
+        return res.status(404).json({ error: "Startup not found" });
+      }
+
+      // Security check: Only owner, admin, or assigned jury can see detailed evaluations
+      // (Jury check is omitted for simplicity unless we have a clear assignment link here)
+      if (req.user.role !== 'admin' && startup.userId !== req.user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const evaluations = await storage.getEvaluationsByStartupId(id);
+      res.json(evaluations);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch evaluations" });
+    }
+  });
+
   app.post("/api/startups", requireAuth, async (req: any, res) => {
     try {
-      const startupData = insertStartupSchema.parse(req.body);
+      // Ensure startup is linked to the authenticated founder
+      const startupData = {
+        ...insertStartupSchema.parse(req.body),
+        userId: req.user.role === 'founder' ? req.user.id : req.body.userId
+      };
 
-      // WORKAROUND: The 'startups' table is missing 'user_id' column.
-      // We skip linking the startup to the user for now.
-      // if (req.user.role === 'founder' && !startupData.userId) {
-      //   startupData.userId = req.user.id;
-      // }
-
+      console.log("Creating startup for user:", req.user.id, "Data:", startupData);
       const startup = await storage.createStartup(startupData);
       res.json(startup);
     } catch (error) {
@@ -275,12 +314,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/startups/:id", async (req, res) => {
+  app.put("/api/startups/:id", requireAuth, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
+      const startup = await storage.getStartup(id);
+
+      if (!startup) {
+        return res.status(404).json({ error: "Startup not found" });
+      }
+
+      // Security Check
+      if (req.user.role !== 'admin' && startup.userId !== req.user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
       const startupData = insertStartupSchema.partial().parse(req.body);
-      const startup = await storage.updateStartup(id, startupData);
-      res.json(startup);
+      const updatedStartup = await storage.updateStartup(id, startupData);
+      res.json(updatedStartup);
     } catch (error) {
       res.status(400).json({ error: "Invalid startup data" });
     }

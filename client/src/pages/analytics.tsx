@@ -55,7 +55,7 @@ export default function Analytics() {
     }
 
     const selectedStartup = startups?.find(s => s.id === selectedStartupId);
-    const startupEvals = evaluations?.filter(e => e.startupId === selectedStartupId) || [];
+    const s = evaluations?.filter(e => e.startupId === selectedStartupId) || [];
 
     const getJuryMemberName = (juryId: number) => {
         const jury = Array.isArray(users) ? users.find((user: any) => user.id === juryId) : undefined;
@@ -251,7 +251,7 @@ export default function Analytics() {
                                             </div>
                                             <div className="flex justify-between py-2">
                                                 <span className="text-sm text-slate-500 font-medium">Reviews</span>
-                                                <Badge className="bg-slate-900 text-white font-bold">{startupEvals.length}</Badge>
+                                                <Badge className="bg-slate-900 text-white font-bold">{s.length}</Badge>
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -279,7 +279,7 @@ export default function Analytics() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {startupEvals.map((evaluation: any) => (
+                                            {s.map((evaluation: any) => (
                                                 <TableRow key={evaluation.id} className="hover:bg-slate-50/50 transition-colors">
                                                     <TableCell className="font-semibold text-slate-900 py-4">
                                                         {getJuryMemberName(evaluation.juryId)}

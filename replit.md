@@ -1,8 +1,8 @@
-# StartupEval - Jury Evaluation System
+#  - Jury Evaluation System
 
 ## Overview
 
-StartupEval is a comprehensive web application designed for managing startup evaluation processes. It provides a platform for administrators to manage startup cohorts, jury members, and evaluation criteria while enabling jury members to evaluate startups through structured assessment forms. The system supports multi-phase evaluation workflows with detailed analytics and reporting capabilities.
+ is a comprehensive web application designed for managing startup evaluation processes. It provides a platform for administrators to manage startup cohorts, jury members, and evaluation criteria while enabling jury members to evaluate startups through structured assessment forms. The system supports multi-phase evaluation workflows with detailed analytics and reporting capabilities.
 
 ## System Architecture
 

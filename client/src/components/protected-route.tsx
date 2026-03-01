@@ -23,21 +23,40 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
     staleTime: 0, // Always check auth on protected routes
   });
 
+  const { data: startup, isLoading: isStartupLoading } = useQuery<any>({
+    queryKey: ["/api/startups/me"],
+    enabled: !!authData?.user && authData.user.role === 'founder',
+  });
+
   useEffect(() => {
-    if (!isLoading && (error || !authData?.user)) {
+    if (isLoading || isStartupLoading) return;
+
+    if (error || !authData?.user) {
       setLocation("/login");
-    } else if (!isLoading && requireAdmin && authData?.user?.role !== 'admin') {
-      if (authData?.user?.role === 'jury') {
-        setLocation("/jury-dashboard");
-      } else if (authData?.user?.role === 'founder') {
-        setLocation("/founder-onboarding");
-      } else {
-        setLocation("/login");
-      }
-    } else if (!isLoading && authData?.user?.role === 'founder' && window.location.pathname !== '/founder-onboarding') {
-      setLocation("/founder-onboarding");
+      return;
     }
-  }, [isLoading, error, authData, setLocation, requireAdmin]);
+
+    const { role } = authData.user;
+    const { pathname } = window.location;
+
+    // Admin requirement check
+    if (requireAdmin && role !== 'admin') {
+      if (role === 'jury') setLocation("/jury-dashboard");
+      else if (role === 'founder') {
+        if (!startup) setLocation("/founder-onboarding");
+        else setLocation("/founder/evaluation");
+      }
+      else setLocation("/login");
+      return;
+    }
+
+    // Founder onboarding check
+    if (role === 'founder' && !startup && pathname !== '/founder-onboarding') {
+      setLocation("/founder-onboarding");
+    } else if (role === 'founder' && startup && pathname === '/founder-onboarding') {
+      setLocation("/founder/evaluation");
+    }
+  }, [isLoading, isStartupLoading, error, authData, startup, setLocation, requireAdmin]);
 
   if (isLoading) {
     return (

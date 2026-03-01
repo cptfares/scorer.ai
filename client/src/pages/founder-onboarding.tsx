@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
@@ -17,12 +18,13 @@ import { z } from "zod";
 
 const onboardingSchema = z.object({
     name: z.string().min(1, "Name is required"),
-    phoneNumber: z.string().min(10, "Phone number must be at least 10 digits"),
+    phoneNumber: z.string().min(8, "Phone number must be at least 10 digits"),
     bio: z.string().min(10, "Bio must be at least 10 characters"),
     startup: insertStartupSchema.omit({ phaseId: true }),
 });
 
 export default function FounderOnboarding() {
+    const [, setLocation] = useLocation();
     const { toast } = useToast();
     const [step, setStep] = useState(1);
 
@@ -390,8 +392,8 @@ export default function FounderOnboarding() {
                                     </p>
                                 </div>
                                 <Button
-                                    className="w-full bg-primary hover:bg-primary/90"
-                                    onClick={() => window.location.href = "/"}
+                                    onClick={() => setLocation("/founder/evaluation")}
+                                    className="bg-[#0F7894] hover:bg-[#0c6078] px-8"
                                 >
                                     Go to Dashboard
                                 </Button>

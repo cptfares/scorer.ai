@@ -119,8 +119,8 @@ export default function Evaluations() {
             <CardContent>
               <div className="space-y-4">
                 {startups?.map((startup: any) => {
-                  const startupEvaluations = evaluations?.filter((e: any) => e.startupId === startup.id) || [];
-                  const completed = startupEvaluations.filter((e: any) => e.isCompleted).length;
+                  const uations = evaluations?.filter((e: any) => e.startupId === startup.id) || [];
+                  const completed = uations.filter((e: any) => e.isCompleted).length;
                   const total = juryMembers?.length || 0;
                   const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
 

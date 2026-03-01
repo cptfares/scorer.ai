@@ -10,6 +10,8 @@ interface HeaderProps {
   onAddClick?: () => void;
   showBackButton?: boolean;
   backHref?: string;
+  user?: { name: string; role: string };
+  logout?: () => Promise<void>;
 }
 
 export default function Header({
@@ -19,7 +21,9 @@ export default function Header({
   addButtonLabel,
   onAddClick,
   showBackButton,
-  backHref = "/"
+  backHref = "/",
+  user,
+  logout
 }: HeaderProps) {
   return (
     <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-20">
@@ -52,9 +56,34 @@ export default function Header({
               <Bell size={20} />
               <span className="bg-[hsl(var(--error))] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
             </div>
+            {user && (
+              <div className="flex items-center space-x-4 pl-4 border-l border-gray-200">
+                <div className="flex items-center space-x-3 text-right">
+                  <div className="hidden sm:block">
+                    <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                    <p className="text-xs text-gray-500 capitalize">{user.role}</p>
+                  </div>
+                  <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                    <User className="text-gray-500" size={16} />
+                  </div>
+                </div>
+                {logout && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={logout}
+                    className="text-gray-500 hover:text-red-600 hover:bg-red-50"
+                  >
+                    <LogOut size={18} />
+                    <span className="ml-2 hidden lg:inline">Logout</span>
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
     </header>
   );
 }
+import { User, LogOut } from "lucide-react";

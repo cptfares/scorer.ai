@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Lock, CheckCircle2, BarChart3 } from "lucide-react";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
+import logo from "@/assets/logo.png";
 
 const setupPasswordSchema = z.object({
     password: z.string().min(8, "Password must be at least 8 characters"),
@@ -84,10 +85,10 @@ export default function SetupPassword() {
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-slate-100 flex items-center justify-center p-4">
             <div className="w-full max-w-md">
                 <div className="text-center mb-8">
-                    <div className="w-16 h-16 bg-[#0F7894] rounded-2xl mx-auto mb-4 flex items-center justify-center">
-                        <BarChart3 className="text-white text-2xl" size={32} />
+                    <div className="w-20 h-20 bg-white rounded-2xl mx-auto mb-4 flex items-center justify-center overflow-hidden shadow-sm">
+                        <img src={logo} alt="Scorer Ai Logo" className="w-full h-full object-contain" />
                     </div>
-                    <h1 className="text-3xl font-bold text-slate-800">StartupEval</h1>
+                    <h1 className="text-3xl font-bold text-slate-800">Scorer Ai</h1>
                     <p className="text-slate-600 mt-2">Finish setting up your account</p>
                 </div>
 

@@ -13,9 +13,10 @@ import {
   User,
   Eye
 } from "lucide-react";
+import logo from "@/assets/logo.png";
 
 export default function JuryDashboard() {
-  const { data: user } = useQuery({
+  const { data: user } = useQuery<{ user: { id: number, name: string, role: string } } | null>({
     queryKey: ["/api/auth/me"],
   });
 
@@ -60,11 +61,11 @@ export default function JuryDashboard() {
         <div className="px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 bg-[hsl(var(--primary-500))] rounded-lg flex items-center justify-center">
-                <ClipboardCheck className="text-white" size={20} />
+              <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center overflow-hidden shadow-sm">
+                <img src={logo} alt="Scorer Ai Logo" className="w-full h-full object-contain" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-[hsl(var(--gray-700))]">StartupEval</h1>
+                <h1 className="text-2xl font-bold text-[hsl(var(--gray-700))]">Scorer Ai</h1>
                 <p className="text-[hsl(var(--gray-500))]">Jury Portal</p>
               </div>
             </div>

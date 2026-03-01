@@ -23,6 +23,7 @@ export interface IStorage {
   // Startup management
   getStartups(phaseId?: number): Promise<Startup[]>;
   getStartup(id: number): Promise<Startup | undefined>;
+  getStartupByUserId(userId: number): Promise<Startup | undefined>;
   createStartup(startup: InsertStartup): Promise<Startup>;
   updateStartup(id: number, startup: Partial<Startup>): Promise<Startup>;
   deleteStartup(id: number): Promise<void>;
@@ -40,6 +41,7 @@ export interface IStorage {
   // Evaluations
   getEvaluations(phaseId?: number): Promise<Evaluation[]>;
   getEvaluation(juryId: number, startupId: number): Promise<Evaluation | undefined>;
+  getEvaluationsByStartupId(startupId: number): Promise<Evaluation[]>;
   createEvaluation(evaluation: InsertEvaluation): Promise<Evaluation>;
   updateEvaluation(id: number, evaluation: Partial<InsertEvaluation>): Promise<Evaluation>;
 
@@ -206,6 +208,16 @@ export class DatabaseStorage implements IStorage {
     return toCamelCase(data) as Startup;
   }
 
+  async getStartupByUserId(userId: number): Promise<Startup | undefined> {
+    const { data, error } = await supabaseAdmin
+      .from("startups")
+      .select("*")
+      .eq("user_id", userId)
+      .single();
+    if (error || !data) return undefined;
+    return toCamelCase(data) as Startup;
+  }
+
   async createStartup(insertStartup: InsertStartup): Promise<Startup> {
     const { data, error } = await supabaseAdmin
       .from("startups")
@@ -332,6 +344,15 @@ export class DatabaseStorage implements IStorage {
     return toCamelCase(data) as Evaluation;
   }
 
+  async getEvaluationsByStartupId(startupId: number): Promise<Evaluation[]> {
+    const { data, error } = await supabaseAdmin
+      .from("evaluations")
+      .select("*")
+      .eq("startup_id", startupId);
+    if (error) throw error;
+    return (data || []).map(toCamelCase) as Evaluation[];
+  }
+
   async createEvaluation(insertEvaluation: InsertEvaluation): Promise<Evaluation> {
     const { data, error } = await supabaseAdmin
       .from("evaluations")
@@ -390,8 +411,8 @@ export class DatabaseStorage implements IStorage {
 
     // Compute scores per startup
     return (startups || []).map((s: any) => {
-      const startupEvals = (evaluations || []).filter((e: any) => e.startupId === s.id || e.startup_id === s.id);
-      const scores = startupEvals
+      const s = (evaluations || []).filter((e: any) => e.startupId === s.id || e.startup_id === s.id);
+      const scores = s
         .map((e: any) => {
           if (!e.scores || typeof e.scores !== 'object') return null;
           const values = Object.values(e.scores).map(v => typeof v === 'number' ? v : parseFloat(v as string)).filter((v): v is number => !isNaN(v));
@@ -404,8 +425,8 @@ export class DatabaseStorage implements IStorage {
         startupName: s.name,
         category: s.category,
         avgScore: scores.length > 0 ? (scores.reduce((a: number, b: number) => a + b, 0) / scores.length) : null,
-        evaluationCount: startupEvals.length,
-        decision: startupEvals.length > 0 ? startupEvals[0].decision : null,
+        evaluationCount: s.length,
+        decision: s.length > 0 ? s[0].decision : null,
       };
     });
   }

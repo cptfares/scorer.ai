@@ -88,15 +88,15 @@ export default function Dashboard() {
   });
 
   // Helper functions for data processing
-  const getStartupEvaluations = (startupId: number) => {
+  const getuations = (startupId: number) => {
     return Array.isArray(evaluations) ? evaluations.filter((evaluation: any) => evaluation.startupId === startupId) : [];
   };
 
   const getStartupAverageScore = (startupId: number) => {
-    const startupEvals = getStartupEvaluations(startupId);
-    if (!startupEvals.length) return 0;
+    const s = getuations(startupId);
+    if (!s.length) return 0;
 
-    const totalScore = startupEvals.reduce((sum: number, evaluation: any) => {
+    const totalScore = s.reduce((sum: number, evaluation: any) => {
       if (!evaluation.scores || typeof evaluation.scores !== 'object') return sum;
       const evalScores = Object.values(evaluation.scores) as number[];
       if (evalScores.length === 0) return sum;
@@ -104,7 +104,7 @@ export default function Dashboard() {
       return sum + avgScore;
     }, 0);
 
-    return startupEvals.length > 0 ? totalScore / startupEvals.length : 0;
+    return s.length > 0 ? totalScore / s.length : 0;
   };
 
   const getStartupRanking = () => {
@@ -114,14 +114,14 @@ export default function Dashboard() {
       .map((startup: any) => ({
         ...startup,
         averageScore: getStartupAverageScore(startup.id),
-        evaluationCount: getStartupEvaluations(startup.id).length,
+        evaluationCount: getuations(startup.id).length,
       }))
       .sort((a, b) => b.averageScore - a.averageScore);
   };
 
   const getCriteriaScores = (startupId: number, criteriaName: string) => {
-    const startupEvals = getStartupEvaluations(startupId);
-    return startupEvals.map((evaluation: any) => evaluation.scores?.[criteriaName] || 0);
+    const s = getuations(startupId);
+    return s.map((evaluation: any) => evaluation.scores?.[criteriaName] || 0);
   };
 
   const getJuryMemberName = (juryId: number) => {
@@ -132,11 +132,11 @@ export default function Dashboard() {
   const getRadarData = (startupId: number) => {
     if (!criteria || !Array.isArray(criteria) || !evaluations || !Array.isArray(evaluations)) return [];
 
-    const startupEvals = evaluations.filter((e: any) => e.startupId === startupId);
-    if (startupEvals.length === 0) return [];
+    const s = evaluations.filter((e: any) => e.startupId === startupId);
+    if (s.length === 0) return [];
 
     return criteria.map((c: any) => {
-      const scores = startupEvals.map((e: any) => e.scores?.[c.id.toString()] || 0);
+      const scores = s.map((e: any) => e.scores?.[c.id.toString()] || 0);
       const avg = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
       return {
         subject: c.name,
@@ -334,13 +334,13 @@ export default function Dashboard() {
             <TabsContent value="evaluations" className="space-y-6">
               <div className="grid gap-6">
                 {Array.isArray(rankedStartups) && rankedStartups.map((startup: any) => {
-                  const startupEvals = getStartupEvaluations(startup.id);
+                  const s = getuations(startup.id);
                   return (
                     <Card key={startup.id}>
                       <CardHeader>
                         <CardTitle className="flex items-center justify-between">
                           <span>{startup.name} - Jury Evaluations</span>
-                          <Badge variant="outline">{startupEvals.length} evaluations</Badge>
+                          <Badge variant="outline">{s.length} evaluations</Badge>
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
@@ -357,7 +357,7 @@ export default function Dashboard() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {startupEvals.map((evaluation: any) => {
+                            {s.map((evaluation: any) => {
                               const evalScores = Object.values(evaluation.scores || {}) as number[];
                               const avgScore = evalScores.reduce((a: number, b: number) => a + b, 0) / evalScores.length;
 
@@ -425,8 +425,8 @@ export default function Dashboard() {
                     </TableHeader>
                     <TableBody>
                       {rankedStartups.map((startup: any) => {
-                        const startupEvals = getStartupEvaluations(startup.id);
-                        const recommendations = startupEvals.reduce((acc: any, evaluation: any) => {
+                        const s = getuations(startup.id);
+                        const recommendations = s.reduce((acc: any, evaluation: any) => {
                           acc[evaluation.decision] = (acc[evaluation.decision] || 0) + 1;
                           return acc;
                         }, {});
@@ -660,7 +660,7 @@ export default function Dashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {Array.isArray(getStartupEvaluations(selectedStartup.id)) && getStartupEvaluations(selectedStartup.id).map((evaluation: any) => (
+                    {Array.isArray(getuations(selectedStartup.id)) && getuations(selectedStartup.id).map((evaluation: any) => (
                       <TableRow key={evaluation.id}>
                         <TableCell className="font-medium">
                           {getJuryMemberName(evaluation.juryId)}

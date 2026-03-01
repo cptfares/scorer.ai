@@ -13,6 +13,7 @@ import { BarChart3, User, Lock } from "lucide-react";
 import { z } from "zod";
 
 import { supabase } from "@/lib/supabase";
+import logo from "@/assets/logo.png";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -50,7 +51,17 @@ export default function Login() {
     onSuccess: (data) => {
       toast({ title: "Login successful" });
       localStorage.setItem("user", JSON.stringify(data.user));
-      setLocation("/dashboard");
+
+      const role = data.user.role;
+      if (role === 'admin') {
+        setLocation("/dashboard");
+      } else if (role === 'founder') {
+        setLocation("/founder/evaluation");
+      } else if (role === 'jury') {
+        setLocation("/jury-dashboard");
+      } else {
+        setLocation("/");
+      }
     },
     onError: (error: any) => {
       toast({
@@ -69,10 +80,10 @@ export default function Login() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-slate-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-[#0F7894] rounded-2xl mx-auto mb-4 flex items-center justify-center">
-            <BarChart3 className="text-white text-2xl" size={32} />
+          <div className="w-20 h-20 bg-white rounded-2xl mx-auto mb-4 flex items-center justify-center overflow-hidden shadow-sm">
+            <img src={logo} alt="Scorer Ai Logo" className="w-full h-full object-contain" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-800">StartupEval</h1>
+          <h1 className="text-3xl font-bold text-slate-800">Scorer Ai</h1>
           <p className="text-slate-600 mt-2">Sign in to your account</p>
         </div>
 

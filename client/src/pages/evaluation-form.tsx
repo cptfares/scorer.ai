@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
@@ -27,6 +27,7 @@ const evaluationFormSchema = insertEvaluationSchema.extend({
 
 export default function EvaluationForm() {
   const { startupId } = useParams<{ startupId: string }>();
+  const [, setLocation] = useLocation();
   const [scores, setScores] = useState<Record<string, number>>({});
   const [decision, setDecision] = useState<"yes" | "maybe" | "no" | "">("");
   const { toast } = useToast();
@@ -126,6 +127,7 @@ export default function EvaluationForm() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/evaluations"] });
       toast({ title: "Evaluation submitted successfully" });
+      setLocation(user?.role === 'admin' ? "/evaluations" : "/jury-dashboard");
     },
     onError: () => {
       toast({ title: "Failed to submit evaluation", variant: "destructive" });
@@ -185,6 +187,12 @@ export default function EvaluationForm() {
           subtitle={`Evaluating ${startup?.name}`}
           showBackButton
           backHref={user?.role === 'admin' ? "/dashboard" : "/jury-dashboard"}
+          user={user ? { name: user.name, role: user.role } : undefined}
+          logout={async () => {
+            await fetch("/api/auth/logout", { method: "POST" });
+            localStorage.removeItem("user");
+            window.location.href = "/login";
+          }}
         />
 
         <div className="p-8">

@@ -31,6 +31,7 @@ export default function Jury() {
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedJury, setSelectedJury] = useState<any>(null);
   const [selectedStartups, setSelectedStartups] = useState<number[]>([]);
+  const [invitationResult, setInvitationResult] = useState<{ email: string, name: string, password: string, role: string } | null>(null);
   const { toast } = useToast();
 
   const { data: users, isLoading } = useQuery({
@@ -64,15 +65,25 @@ export default function Jury() {
   const inviteMutation = useMutation({
     mutationFn: async (data: z.infer<typeof juryInviteSchema>) => {
       const response = await apiRequest("POST", "/api/users/invite", data);
-      return response.json();
+      const resJSON = await response.json();
+      return resJSON;
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       setIsDialogOpen(false);
       form.reset();
+
+      // Store result to show in the centered Dialog
+      setInvitationResult({
+        email: variables.email,
+        name: variables.name,
+        password: data.password,
+        role: variables.role
+      });
+
       toast({
-        title: `${variables.role.charAt(0).toUpperCase() + variables.role.slice(1)} Invited`,
-        description: `An invitation email has been sent to ${variables.name}.`,
+        title: "Success",
+        description: `${variables.name} has been added successfully.`,
       });
     },
     onError: (error: any) => {
@@ -492,6 +503,54 @@ export default function Jury() {
                     {assignMutation.isPending ? "Saving..." : "Save Assignments"}
                   </Button>
                 </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* New Centered Success Dialog for Invitation Results */}
+          <Dialog open={!!invitationResult} onOpenChange={(open) => !open && setInvitationResult(null)}>
+            <DialogContent className="sm:max-w-md text-center">
+              <DialogHeader>
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="text-green-600" size={24} />
+                </div>
+                <DialogTitle className="text-xl">
+                  {invitationResult?.role.charAt(0).toUpperCase()}{invitationResult?.role.slice(1)} Created Successfully
+                </DialogTitle>
+              </DialogHeader>
+
+              <div className="py-6 space-y-4">
+                <p className="text-slate-600">
+                  User accounts have been created in both Supabase and our system.
+                </p>
+
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-slate-500">Email:</span>
+                    <span className="font-medium text-slate-900">{invitationResult?.email}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm border-t pt-3 border-slate-200">
+                    <span className="text-slate-500">Password:</span>
+                    <span className="font-mono font-bold text-[#0F7894]">{invitationResult?.password}</span>
+                  </div>
+                </div>
+
+                <Button
+                  className="w-full bg-[#0F7894] hover:bg-[#0c6078]"
+                  onClick={() => {
+                    if (invitationResult) {
+                      const info = `your login information is email : ${invitationResult.email} and password : ${invitationResult.password}`;
+                      navigator.clipboard.writeText(info);
+                      toast({ title: "Portal Credentials Copied" });
+                    }
+                  }}
+                >
+                  Copy Login Information
+                </Button>
+
+                <p className="text-xs text-amber-600 font-medium">
+                  Please copy these credentials now. For security reasons, the password will not be shown again.
+                </p>
               </div>
             </DialogContent>
           </Dialog>

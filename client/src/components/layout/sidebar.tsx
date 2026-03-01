@@ -8,11 +8,14 @@ import {
   TrendingUp,
   FileText,
   LogOut,
-  User
+  User,
+  Info,
+  Award
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
+import logo from "@/assets/logo.png";
 
 const adminNavigation = [
   { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
@@ -25,6 +28,12 @@ const adminNavigation = [
 
 const juryNavigation = [
   { name: "Dashboard", href: "/jury-dashboard", icon: BarChart3 },
+];
+
+const founderNavigation = [
+  { name: "Evaluation", href: "/founder/evaluation", icon: Award },
+  { name: "Startup Info", href: "/founder/startup", icon: Info },
+  { name: "Founder Info", href: "/founder/profile", icon: User },
 ];
 
 export default function Sidebar() {
@@ -54,17 +63,23 @@ export default function Sidebar() {
 
   const user = authData?.user;
   const isAdmin = user?.role === 'admin';
-  const navigation = isAdmin ? adminNavigation : juryNavigation;
+  const isFounder = user?.role === 'founder';
+
+  const navigation = isAdmin
+    ? adminNavigation
+    : isFounder
+      ? founderNavigation
+      : juryNavigation;
 
   return (
     <aside className="w-64 bg-white shadow-lg border-r border-gray-200 fixed h-full z-30">
       <div className="p-6 border-b border-slate-200">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-[#0F7894] rounded-lg flex items-center justify-center">
-            <BarChart3 className="text-white text-lg" size={20} />
+          <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center overflow-hidden">
+            <img src={logo} alt="Scorer Ai Logo" className="w-full h-full object-contain" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-900">StartupEval</h1>
+            <h1 className="text-xl font-bold text-slate-900"> Scorer Ai</h1>
             <p className="text-sm text-slate-500">Pro Platform</p>
           </div>
         </div>

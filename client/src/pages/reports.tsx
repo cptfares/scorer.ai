@@ -79,7 +79,7 @@ export default function Reports() {
         XLSX.utils.book_append_sheet(wb, ws, "Evaluations");
 
         // Generate filename
-        const fileName = `StartupEval_Report_${format(new Date(), "yyyy-MM-dd_HHmm")}.xlsx`;
+        const fileName = `_Report_${format(new Date(), "yyyy-MM-dd_HHmm")}.xlsx`;
 
         // Save file
         XLSX.writeFile(wb, fileName);
