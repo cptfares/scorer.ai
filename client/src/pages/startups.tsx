@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
@@ -14,7 +15,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertStartupSchema } from "@shared/schema";
-import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
@@ -28,14 +28,85 @@ const startupFormSchema = insertStartupSchema.extend({
 export default function Startups() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingStartup, setEditingStartup] = useState<any>(null);
+  const [filterCohortId, setFilterCohortId] = useState<string>("all");
   const { toast } = useToast();
 
   const { data: startups, isLoading } = useQuery({
     queryKey: ["/api/startups"],
   });
 
+  const { data: cohorts = [] } = useQuery<any[]>({
+    queryKey: ["/api/cohorts"],
+  });
+
   const { data: activePhase } = useQuery({
     queryKey: ["/api/phases/active"],
+  });
+
+  // Fetch rounds for each cohort so we can show the active round per startup
+  const uniqueCohortIds: number[] = useMemo(() =>
+    [...new Set(((startups as any[]) || []).map((s: any) => s.cohortId).filter(Boolean))],
+    [startups]
+  );
+
+  const cohortRoundsQueries = useQuery<Record<number, any[]>>({
+    queryKey: ["cohort-rounds-bulk", uniqueCohortIds],
+    enabled: uniqueCohortIds.length > 0,
+    queryFn: async () => {
+      const results = await Promise.all(
+        uniqueCohortIds.map(async (cId) => {
+          const res = await apiRequest("GET", `/api/cohorts/${cId}/rounds`);
+          return [cId, await res.json()] as [number, any[]];
+        })
+      );
+      return Object.fromEntries(results);
+    },
+  });
+
+  const cohortRoundsMap: Record<number, any[]> = cohortRoundsQueries.data || {};
+
+  // Active (or latest) round per cohort
+  const activeRoundByCohort = useMemo(() => {
+    const map: Record<number, any> = {};
+    for (const [cohortId, rounds] of Object.entries(cohortRoundsMap)) {
+      const sorted = [...(rounds as any[])].sort((a, b) => (b.order ?? 0) - (a.order ?? 0));
+      map[Number(cohortId)] = sorted.find((r: any) => r.isActive) ?? sorted[0] ?? null;
+    }
+    return map;
+  }, [cohortRoundsMap]);
+
+  // Fetch jury assignments + evaluations for all active rounds
+  const activeRoundIds: number[] = useMemo(() =>
+    Object.values(activeRoundByCohort).filter(Boolean).map((r: any) => r.id),
+    [activeRoundByCohort]
+  );
+
+  const { data: allAssignments = [] } = useQuery<any[]>({
+    queryKey: ["jury-assignments-bulk", activeRoundIds],
+    enabled: activeRoundIds.length > 0,
+    queryFn: async () => {
+      const results = await Promise.all(
+        activeRoundIds.map(async (rId) => {
+          const res = await apiRequest("GET", `/api/jury-assignments?roundId=${rId}`);
+          return res.json();
+        })
+      );
+      return results.flat();
+    },
+  });
+
+  const { data: allEvaluations = [] } = useQuery<any[]>({
+    queryKey: ["evaluations-bulk", activeRoundIds],
+    enabled: activeRoundIds.length > 0,
+    queryFn: async () => {
+      const results = await Promise.all(
+        activeRoundIds.map(async (rId) => {
+          const res = await apiRequest("GET", `/api/evaluations?roundId=${rId}`);
+          return res.json();
+        })
+      );
+      return results.flat();
+    },
   });
 
   const form = useForm<z.infer<typeof startupFormSchema>>({
@@ -49,15 +120,27 @@ export default function Startups() {
       stage: "",
       fundingSeek: "",
       website: "",
-      phaseId: activePhase?.id,
+      cohortId: null,
     },
   });
+
+  const filteredStartups = filterCohortId === "all"
+    ? startups
+    : filterCohortId === "none"
+      ? (startups as any[])?.filter((s: any) => !s.cohortId)
+      : (startups as any[])?.filter((s: any) => String(s.cohortId) === filterCohortId);
+
+  const getCohortName = (cohortId: number | null) => {
+    if (!cohortId) return null;
+    const cohort = (cohorts as any[]).find((c: any) => c.id === cohortId);
+    return cohort?.name || null;
+  };
 
   const createMutation = useMutation({
     mutationFn: async (data: z.infer<typeof startupFormSchema>) => {
       const response = await apiRequest("POST", "/api/startups", {
         ...data,
-        phaseId: activePhase?.id,
+        phaseId: activePhase?.id || null,
       });
       return response.json();
     },
@@ -133,7 +216,7 @@ export default function Startups() {
       stage: "",
       fundingSeek: "",
       website: "",
-      phaseId: activePhase?.id,
+      cohortId: null,
     });
     setIsDialogOpen(true);
   };
@@ -150,7 +233,26 @@ export default function Startups() {
           onAddClick={handleAddNew}
         />
         
-        <div className="p-8">
+        <div className="p-8 space-y-6">
+          {/* Cohort filter */}
+          {(cohorts as any[]).length > 0 && (
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-gray-600">Filter by cohort:</span>
+              <Select value={filterCohortId} onValueChange={setFilterCohortId}>
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All startups</SelectItem>
+                  <SelectItem value="none">No cohort</SelectItem>
+                  {(cohorts as any[]).map((c: any) => (
+                    <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[...Array(6)].map((_, i) => (
@@ -163,13 +265,18 @@ export default function Startups() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {startups?.map((startup: any) => (
+              {(filteredStartups as any[])?.map((startup: any) => {
+                const activeRound = startup.cohortId ? activeRoundByCohort[startup.cohortId] : null;
+                const roundId = activeRound?.id;
+                const assigned = (allAssignments as any[]).filter((a: any) => a.startupId === startup.id && a.roundId === roundId);
+                const completed = (allEvaluations as any[]).filter((e: any) => e.startupId === startup.id && e.roundId === roundId && e.isCompleted);
+                return (
                 <div key={startup.id} className="relative group">
                   <StartupCard
-                    startup={startup}
-                    evaluationProgress={Math.floor(Math.random() * 100)}
-                    totalEvaluations={18}
-                    completedEvaluations={Math.floor(Math.random() * 18)}
+                    startup={{ ...startup, cohortName: getCohortName(startup.cohortId) }}
+                    currentRound={activeRound?.name ?? null}
+                    juryTotal={assigned.length}
+                    juryCompleted={completed.length}
                     onEdit={() => handleEdit(startup)}
                   />
                   <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -183,7 +290,8 @@ export default function Startups() {
                     </Button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -211,7 +319,7 @@ export default function Startups() {
                         </FormItem>
                       )}
                     />
-                    
+
                     <FormField
                       control={form.control}
                       name="category"
@@ -238,6 +346,33 @@ export default function Startups() {
                       )}
                     />
                   </div>
+
+                  <FormField
+                    control={form.control}
+                    name="cohortId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cohort</FormLabel>
+                        <Select
+                          onValueChange={v => field.onChange(v === "none" ? null : parseInt(v))}
+                          value={field.value ? String(field.value) : "none"}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Assign to a cohort (optional)" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="none">No cohort</SelectItem>
+                            {(cohorts as any[]).map((c: any) => (
+                              <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                   <FormField
                     control={form.control}

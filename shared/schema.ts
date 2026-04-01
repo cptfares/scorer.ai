@@ -14,6 +14,47 @@ export type User = {
   createdAt: string | null;
 };
 
+export type Cohort = {
+  id: number;
+  name: string;
+  description: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  isActive: boolean | null;
+  createdAt: string | null;
+};
+
+export type Round = {
+  id: number;
+  cohortId: number;
+  name: string;
+  description: string | null;
+  order: number | null;
+  isActive: boolean | null;
+  startDate: string | null;
+  endDate: string | null;
+  createdAt: string | null;
+};
+
+export type RoundStartup = {
+  id: number;
+  roundId: number;
+  startupId: number;
+  createdAt: string | null;
+};
+
+export type RoundCriteria = {
+  id: number;
+  roundId: number;
+  name: string;
+  description: string | null;
+  type: "scale" | "binary" | "text";
+  scaleMin: number | null;
+  scaleMax: number | null;
+  order: number | null;
+  isActive: boolean | null;
+};
+
 export type Phase = {
   id: number;
   name: string;
@@ -36,6 +77,7 @@ export type Startup = {
   website: string | null;
   logoUrl: string | null;
   phaseId: number | null;
+  cohortId: number | null;
   userId: number | null;
   finalDecision: string | null;
   createdAt: string | null;
@@ -54,6 +96,7 @@ export type JuryAssignment = {
   juryId: number | null;
   startupId: number | null;
   phaseId: number | null;
+  roundId: number | null;
   createdAt: string | null;
 };
 
@@ -62,6 +105,7 @@ export type Evaluation = {
   juryId: number | null;
   startupId: number | null;
   phaseId: number | null;
+  roundId: number | null;
   scores: any;
   comments: string | null;
   decision: string | null;
@@ -90,6 +134,35 @@ export const insertUserSchema = z.object({
   isActive: z.boolean().optional().default(true),
 });
 
+export const insertCohortSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  description: z.string().optional(),
+  startDate: z.coerce.date().optional(),
+  endDate: z.coerce.date().optional(),
+  isActive: z.boolean().optional().default(true),
+});
+
+export const insertRoundSchema = z.object({
+  cohortId: z.number(),
+  name: z.string().min(1, "Name is required"),
+  description: z.string().optional(),
+  order: z.number().optional().default(1),
+  isActive: z.boolean().optional().default(true),
+  startDate: z.coerce.date().optional(),
+  endDate: z.coerce.date().optional(),
+});
+
+export const insertRoundCriteriaSchema = z.object({
+  roundId: z.number(),
+  name: z.string().min(1, "Name is required"),
+  description: z.string().optional(),
+  type: z.enum(["scale", "binary", "text"]).default("scale"),
+  scaleMin: z.number().optional().default(1),
+  scaleMax: z.number().optional().default(5),
+  order: z.number().optional().default(0),
+  isActive: z.boolean().optional().default(true),
+});
+
 export const insertPhaseSchema = z.object({
   name: z.string(),
   description: z.string().optional(),
@@ -108,7 +181,8 @@ export const insertStartupSchema = z.object({
   fundingSeek: z.coerce.string().optional().nullable(),
   website: z.string().optional().nullable(),
   logoUrl: z.string().optional().nullable(),
-  phaseId: z.number(),
+  phaseId: z.number().optional().nullable(),
+  cohortId: z.number().optional().nullable(),
   userId: z.number().optional().nullable(),
   finalDecision: z.string().optional().nullable(),
 });
@@ -123,13 +197,15 @@ export const insertEvaluationCriteriaSchema = z.object({
 export const insertJuryAssignmentSchema = z.object({
   juryId: z.number(),
   startupId: z.number(),
-  phaseId: z.number(),
+  phaseId: z.number().optional().nullable(),
+  roundId: z.number().optional().nullable(),
 });
 
 export const insertEvaluationSchema = z.object({
   juryId: z.number(),
   startupId: z.number(),
-  phaseId: z.number(),
+  phaseId: z.number().optional().nullable(),
+  roundId: z.number().optional().nullable(),
   scores: z.any().optional(),
   comments: z.string().optional(),
   decision: z.string().optional(),
@@ -146,6 +222,9 @@ export const insertDecisionLabelSchema = z.object({
 // ── Insert types (inferred from Zod schemas) ─────────────────
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type InsertCohort = z.infer<typeof insertCohortSchema>;
+export type InsertRound = z.infer<typeof insertRoundSchema>;
+export type InsertRoundCriteria = z.infer<typeof insertRoundCriteriaSchema>;
 export type InsertPhase = z.infer<typeof insertPhaseSchema>;
 export type InsertStartup = z.infer<typeof insertStartupSchema>;
 export type InsertEvaluationCriteria = z.infer<typeof insertEvaluationCriteriaSchema>;

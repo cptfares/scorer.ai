@@ -8,7 +8,6 @@ import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 import Startups from "@/pages/startups";
 import Jury from "@/pages/jury";
-import Evaluations from "@/pages/evaluations";
 import EvaluationForm from "@/pages/evaluation-form";
 import JuryDashboard from "@/pages/jury-dashboard";
 import SetupPassword from "@/pages/setup-password";
@@ -20,6 +19,9 @@ import NotFound from "@/pages/not-found";
 
 import Analytics from "@/pages/analytics";
 import Reports from "@/pages/reports";
+import Cohorts from "@/pages/cohorts";
+import CohortDetail from "@/pages/cohort-detail";
+import RoundDetail from "@/pages/round-detail";
 
 function RootRedirect() {
   const { data: authData, isLoading } = useQuery<any>({ queryKey: ["/api/auth/me"] });
@@ -50,6 +52,21 @@ function Router() {
           <Dashboard />
         </ProtectedRoute>
       </Route>
+      <Route path="/cohorts">
+        <ProtectedRoute requireAdmin>
+          <Cohorts />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/cohorts/:id">
+        <ProtectedRoute requireAdmin>
+          <CohortDetail />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/cohorts/:cohortId/rounds/:roundId">
+        <ProtectedRoute requireAdmin>
+          <RoundDetail />
+        </ProtectedRoute>
+      </Route>
       <Route path="/startups">
         <ProtectedRoute requireAdmin>
           <Startups />
@@ -68,11 +85,6 @@ function Router() {
       <Route path="/reports">
         <ProtectedRoute requireAdmin>
           <Reports />
-        </ProtectedRoute>
-      </Route>
-      <Route path="/evaluations">
-        <ProtectedRoute requireAdmin>
-          <Evaluations />
         </ProtectedRoute>
       </Route>
       <Route path="/jury-dashboard">

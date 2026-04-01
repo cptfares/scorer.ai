@@ -10,7 +10,8 @@ import {
   LogOut,
   User,
   Info,
-  Award
+  Award,
+  Layers
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -19,9 +20,9 @@ import logo from "@/assets/logo.png";
 
 const adminNavigation = [
   { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
+  { name: "Cohorts", href: "/cohorts", icon: Layers },
   { name: "Startups", href: "/startups", icon: Rocket },
   { name: "User Management", href: "/jury", icon: Users },
-  { name: "Evaluations", href: "/evaluations", icon: ClipboardCheck },
   { name: "Analytics", href: "/analytics", icon: TrendingUp },
   { name: "Reports", href: "/reports", icon: FileText },
 ];

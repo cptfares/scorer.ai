@@ -32,6 +32,10 @@ export default function EvaluationForm() {
   const [decision, setDecision] = useState<"yes" | "maybe" | "no" | "">("");
   const { toast } = useToast();
 
+  // Parse roundId from query string
+  const searchParams = new URLSearchParams(window.location.search);
+  const roundId = searchParams.get("roundId") ? parseInt(searchParams.get("roundId")!) : undefined;
+
   const { data: authData } = useQuery<{ user: { id: number, name: string, role: string, email: string } } | null>({
     queryKey: ["/api/auth/me"],
   });
@@ -50,12 +54,27 @@ export default function EvaluationForm() {
     enabled: !!startupId,
   });
 
+  // Use round-specific criteria if roundId is provided, otherwise fall back to global
   const { data: criteria, isLoading: criteriaLoading } = useQuery<any[]>({
-    queryKey: ["/api/evaluation-criteria"],
+    queryKey: roundId ? [`/api/rounds/${roundId}/criteria`] : ["/api/evaluation-criteria"],
+    queryFn: async () => {
+      const { apiRequest } = await import("@/lib/queryClient");
+      const url = roundId ? `/api/rounds/${roundId}/criteria` : "/api/evaluation-criteria";
+      const res = await apiRequest("GET", url);
+      return res.json();
+    }
   });
 
   const { data: existingEvaluation } = useQuery<any>({
-    queryKey: [`/api/evaluations/${juryId}/${startupId}`],
+    queryKey: [`/api/evaluations/${juryId}/${startupId}`, roundId],
+    queryFn: async () => {
+      const { apiRequest } = await import("@/lib/queryClient");
+      const url = roundId
+        ? `/api/evaluations/${juryId}/${startupId}?roundId=${roundId}`
+        : `/api/evaluations/${juryId}/${startupId}`;
+      const res = await apiRequest("GET", url);
+      return res.json();
+    },
     enabled: !!juryId && !!startupId,
   });
 
@@ -65,6 +84,7 @@ export default function EvaluationForm() {
       juryId: juryId || 0,
       startupId: parseInt(startupId!),
       phaseId: phaseId || 0,
+      roundId: roundId || undefined,
       scores: {},
       comments: "",
       decision: undefined,
@@ -72,11 +92,12 @@ export default function EvaluationForm() {
     },
   });
 
-  // Update form juryId and phaseId when data is available
+  // Update form juryId, phaseId, and roundId when data is available
   useEffect(() => {
     if (juryId) form.setValue("juryId", juryId);
     if (phaseId) form.setValue("phaseId", phaseId);
-  }, [juryId, phaseId, form]);
+    if (roundId) form.setValue("roundId", roundId);
+  }, [juryId, phaseId, roundId, form]);
 
   // Load existing evaluation data into form state
   useEffect(() => {
@@ -265,7 +286,10 @@ export default function EvaluationForm() {
                             key={criterion.id}
                             name={criterion.name}
                             description={criterion.description}
-                            value={scores[criterion.id]}
+                            type={criterion.type || "scale"}
+                            scaleMin={criterion.scaleMin ?? 1}
+                            scaleMax={criterion.scaleMax ?? 5}
+                            value={scores[criterion.id.toString()]}
                             onChange={(score) => handleScoreChange(criterion.id.toString(), score)}
                           />
                         ))}
