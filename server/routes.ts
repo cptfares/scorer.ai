@@ -141,7 +141,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const juryIds = [...new Set((assignments || []).map((a: any) => a.jury_id))] as number[];
       const users = (await Promise.all(juryIds.map(id => storage.getUser(id)))).filter(Boolean) as any[];
 
-      const origin = (req.headers.origin as string) || `http://localhost:5000`;
+      const origin = (req.headers.origin as string) || `https://smu-scorer-app.azurewebsites.net`;
       res.json({
         joinUrl: `${origin}/join/${roundId}`,
         codes: users.map(u => ({ id: u.id, name: u.name, email: u.email, code: getJuryCode(u.id) })),

@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useFieldArray } from "react-hook-form";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { Plus, Edit, Trash2, UserPlus, X } from "lucide-react";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import StartupCard from "@/components/startup-card";
@@ -121,7 +122,15 @@ export default function Startups() {
       fundingSeek: "",
       website: "",
       cohortId: null,
+      team: [],
+      revenueModel: "",
+      onePagerLink: "",
     },
+  });
+
+  const { fields: teamFields, append: appendTeam, remove: removeTeam } = useFieldArray({
+    control: form.control,
+    name: "team" as any,
   });
 
   const filteredStartups = filterCohortId === "all"
@@ -208,15 +217,9 @@ export default function Startups() {
   const handleAddNew = () => {
     setEditingStartup(null);
     form.reset({
-      name: "",
-      category: "",
-      description: "",
-      founded: "",
-      teamSize: "",
-      stage: "",
-      fundingSeek: "",
-      website: "",
-      cohortId: null,
+      name: "", category: "", description: "", founded: "",
+      teamSize: "", stage: "", fundingSeek: "", website: "",
+      cohortId: null, team: [], revenueModel: "", onePagerLink: "",
     });
     setIsDialogOpen(true);
   };
@@ -296,7 +299,7 @@ export default function Startups() {
           )}
 
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
                   {editingStartup ? "Edit Startup" : "Add New Startup"}
@@ -476,17 +479,79 @@ export default function Startups() {
                     />
                   </div>
 
+                  {/* One-Pager Link */}
+                  <FormField
+                    control={form.control}
+                    name="onePagerLink"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>One-Pager Link</FormLabel>
+                        <FormControl>
+                          <Input placeholder="https://canva.com/..." {...field} value={field.value ?? ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Revenue Model */}
+                  <FormField
+                    control={form.control}
+                    name="revenueModel"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Revenue Model</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="Describe the revenue model..." {...field} value={field.value ?? ""} rows={2} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Team Members */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <FormLabel>Team Members</FormLabel>
+                      <Button type="button" variant="outline" size="sm" onClick={() => appendTeam({ name: "", role: "" })}>
+                        <UserPlus size={13} className="mr-1" /> Add Member
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      {teamFields.map((field, idx) => (
+                        <div key={field.id} className="flex gap-2 items-center">
+                          <Input
+                            placeholder="Name"
+                            {...form.register(`team.${idx}.name` as any)}
+                            className="flex-1"
+                          />
+                          <Input
+                            placeholder="Role (e.g. CEO)"
+                            {...form.register(`team.${idx}.role` as any)}
+                            className="flex-1"
+                          />
+                          <Button type="button" variant="ghost" size="sm" className="px-2 text-gray-400 hover:text-red-500" onClick={() => removeTeam(idx)}>
+                            <X size={14} />
+                          </Button>
+                        </div>
+                      ))}
+                      {teamFields.length === 0 && (
+                        <p className="text-xs text-gray-400">No team members added yet.</p>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="flex justify-end space-x-2 pt-4">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
+                    <Button
+                      type="button"
+                      variant="outline"
                       onClick={() => setIsDialogOpen(false)}
                       className="text-slate-600 border-slate-300 hover:bg-slate-50 shadow-sm"
                     >
                       Cancel
                     </Button>
-                    <Button 
-                      type="submit" 
+                    <Button
+                      type="submit"
                       className="bg-[#0F7894] hover:bg-[#0c6078] text-white border-[#0F7894] shadow-sm"
                       disabled={createMutation.isPending || updateMutation.isPending}
                     >

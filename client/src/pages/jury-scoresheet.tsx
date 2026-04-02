@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeft, Save, Send, CheckCircle, Clock, Circle, User, X,
-  Building2, Users, TrendingUp, DollarSign, CalendarDays, Info,
+  Building2, Users, TrendingUp, DollarSign, CalendarDays, Info, ExternalLink,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 
@@ -656,7 +656,54 @@ export default function JuryScoresheet() {
                     </div>
                   </div>
                 )}
+                {selectedStartup.onePagerLink && (
+                  <a href={selectedStartup.onePagerLink} target="_blank" rel="noreferrer"
+                    className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                    <div className="w-7 h-7 rounded-md bg-gray-50 flex items-center justify-center shrink-0">
+                      <ExternalLink size={13} className="text-gray-400" />
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-gray-400 uppercase tracking-wide">One-Pager</div>
+                      <div className="text-sm font-medium text-[#0F7894]">View →</div>
+                    </div>
+                  </a>
+                )}
               </div>
+
+              {/* Team members */}
+              {Array.isArray(selectedStartup.team) && selectedStartup.team.length > 0 && (
+                <>
+                  <div className="border-t border-gray-100" />
+                  <div>
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                      <Users size={11} />
+                      Team
+                    </div>
+                    <div className="space-y-1.5">
+                      {selectedStartup.team.map((m: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between text-xs">
+                          <span className="font-medium text-gray-800">{m.name}</span>
+                          {m.role && <span className="text-gray-400 text-[10px]">{m.role}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Revenue model */}
+              {selectedStartup.revenueModel && (
+                <>
+                  <div className="border-t border-gray-100" />
+                  <div>
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                      <DollarSign size={11} />
+                      Revenue Model
+                    </div>
+                    <p className="text-xs text-gray-600 leading-relaxed">{selectedStartup.revenueModel}</p>
+                  </div>
+                </>
+              )}
 
               {/* Current row scores summary */}
               {rows[selectedStartup.id] && Object.keys(rows[selectedStartup.id].scores).length > 0 && (

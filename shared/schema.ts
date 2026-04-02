@@ -81,6 +81,9 @@ export type Startup = {
   userId: number | null;
   finalDecision: string | null;
   createdAt: string | null;
+  team: Array<{ name: string; role: string }> | null;
+  revenueModel: string | null;
+  onePagerLink: string | null;
 };
 
 export type EvaluationCriteria = {
@@ -185,6 +188,9 @@ export const insertStartupSchema = z.object({
   cohortId: z.number().optional().nullable(),
   userId: z.number().optional().nullable(),
   finalDecision: z.string().optional().nullable(),
+  team: z.array(z.object({ name: z.string(), role: z.string().optional().default("") })).optional().nullable(),
+  revenueModel: z.string().optional().nullable(),
+  onePagerLink: z.string().optional().nullable(),
 });
 
 export const insertEvaluationCriteriaSchema = z.object({
