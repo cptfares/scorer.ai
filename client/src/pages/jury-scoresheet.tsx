@@ -102,32 +102,6 @@ function BinaryCell({
   );
 }
 
-function DecisionCell({
-  value, onChange, disabled,
-}: { value: string; onChange: (v: string) => void; disabled?: boolean }) {
-  const opts = [
-    { key: "yes",   label: "✓", active: "bg-green-600 border-green-600 text-white" },
-    { key: "maybe", label: "?", active: "bg-amber-500 border-amber-500 text-white" },
-    { key: "no",    label: "✗", active: "bg-red-500 border-red-500 text-white" },
-  ] as const;
-  return (
-    <div className="flex gap-1 justify-center">
-      {opts.map(o => (
-        <button
-          key={o.key}
-          type="button"
-          disabled={disabled}
-          onClick={() => onChange(value === o.key ? "" : o.key)}
-          className={cn(
-            "w-6 h-6 text-xs font-bold rounded border transition-colors",
-            value === o.key ? o.active : "border-gray-200 text-gray-500 hover:border-gray-400",
-          )}
-        >{o.label}</button>
-      ))}
-    </div>
-  );
-}
-
 // ─── row state ────────────────────────────────────────────────────────────────
 
 interface RowState {
@@ -288,6 +262,23 @@ export default function JuryScoresheet() {
     ...(criteria as any[]).filter((c: any) => c.type === "text"),
   ];
 
+  const calcWeightedTotal = (scores: Record<string, any>) => {
+    let weightedSum = 0;
+    let hasAnyScore = false;
+    for (const c of orderedCriteria) {
+      if (c.type !== "scale") continue;
+      const val = scores[c.id.toString()];
+      if (typeof val !== "number") continue;
+      hasAnyScore = true;
+      weightedSum += val * (c.weight ?? 1);
+    }
+    return hasAnyScore ? weightedSum : null;
+  };
+
+  const maxWeightedTotal = orderedCriteria
+    .filter((c: any) => c.type === "scale")
+    .reduce((sum: number, c: any) => sum + (c.scaleMax ?? 5) * (c.weight ?? 1), 0);
+
   const completedCount = Object.values(rows).filter(r => r.isCompleted).length;
   const total = assignedStartups.length;
 
@@ -376,29 +367,22 @@ export default function JuryScoresheet() {
                     <div className="text-xs">{c.name}</div>
                     <div className="text-[10px] font-normal text-gray-400 mt-0.5">
                       {c.type === "scale"
-                        ? `${c.scaleMin ?? 1} – ${c.scaleMax ?? 5}`
+                        ? `${c.scaleMin ?? 1}–${c.scaleMax ?? 5}${(c.weight ?? 1) !== 1 ? ` ×${c.weight}` : ""}`
                         : c.type}
                     </div>
                   </th>
                 ))}
 
-                {/* Decision */}
+                {/* Total */}
                 <th
                   scope="col"
-                  className="border border-gray-200 px-3 py-3 text-center font-semibold text-gray-700 whitespace-nowrap"
-                  style={{ minWidth: 100 }}
+                  className="border-2 border-[#0F7894] px-3 py-3 text-center font-bold text-[#0F7894] whitespace-nowrap bg-[#0F7894]/5 sticky right-0 z-20"
+                  style={{ minWidth: 90 }}
                 >
-                  <div className="text-xs">Decision</div>
-                  <div className="text-[10px] font-normal text-gray-400 mt-0.5">✓ ? ✗</div>
-                </th>
-
-                {/* Comments */}
-                <th
-                  scope="col"
-                  className="border border-gray-200 px-3 py-3 text-left font-semibold text-gray-700 whitespace-nowrap"
-                  style={{ minWidth: 200 }}
-                >
-                  <div className="text-xs">Comments</div>
+                  <div className="text-xs">Score</div>
+                  {maxWeightedTotal > 0 && (
+                    <div className="text-[10px] font-normal text-gray-400 mt-0.5">/{maxWeightedTotal}</div>
+                  )}
                 </th>
 
                 {/* Status */}
@@ -507,26 +491,19 @@ export default function JuryScoresheet() {
                       );
                     })}
 
-                    {/* ── Decision ── */}
-                    <td className="border border-gray-200 px-1.5 py-1.5 text-center">
-                      <DecisionCell
-                        value={row.decision}
-                        onChange={v => updateRow(startup.id, { decision: v })}
-                        disabled={row.isCompleted}
-                      />
-                    </td>
-
-                    {/* ── Comments ── */}
-                    <td className="border border-gray-200 px-1.5 py-1.5">
-                      <input
-                        type="text"
-                        value={row.comments}
-                        disabled={row.isCompleted}
-                        placeholder="Add a comment…"
-                        onChange={e => updateRow(startup.id, { comments: e.target.value })}
-                        onBlur={() => { if (row.isDirty) saveRow(startup.id, false); }}
-                        className="w-full text-xs border border-gray-200 rounded px-2 py-1 outline-none focus:border-[#0F7894] disabled:opacity-50 bg-transparent"
-                      />
+                    {/* ── Score (sticky right) ── */}
+                    <td className={cn(
+                      "border-2 border-[#0F7894] px-2 py-1.5 text-center sticky right-0 z-10 group-hover:bg-blue-50/40",
+                      stripeBg,
+                    )}>
+                      {(() => {
+                        const t = calcWeightedTotal(row.scores);
+                        return t !== null ? (
+                          <span className="font-bold text-base text-[#0F7894]">{t}</span>
+                        ) : (
+                          <span className="text-[10px] text-gray-300">—</span>
+                        );
+                      })()}
                     </td>
 
                     {/* ── Status ── */}

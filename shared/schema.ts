@@ -53,6 +53,7 @@ export type RoundCriteria = {
   scaleMax: number | null;
   order: number | null;
   isActive: boolean | null;
+  weight: number | null;
 };
 
 export type Phase = {
@@ -164,6 +165,7 @@ export const insertRoundCriteriaSchema = z.object({
   scaleMax: z.number().optional().default(5),
   order: z.number().optional().default(0),
   isActive: z.boolean().optional().default(true),
+  weight: z.number().optional().default(1),
 });
 
 export const insertPhaseSchema = z.object({

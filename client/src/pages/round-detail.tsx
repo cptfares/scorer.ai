@@ -89,7 +89,7 @@ export default function RoundDetail() {
   // Criteria state
   const [showCriteriaForm, setShowCriteriaForm] = useState(false);
   const [editCriteria, setEditCriteria] = useState<any>(null);
-  const [criteriaForm, setCriteriaForm] = useState({ name: "", description: "", type: "scale" as "scale" | "binary" | "text", scaleMin: 1, scaleMax: 5, order: 0 });
+  const [criteriaForm, setCriteriaForm] = useState({ name: "", description: "", type: "scale" as "scale" | "binary" | "text", scaleMin: 1, scaleMax: 5, order: 0, weight: 1 });
 
   // Startup state
   const [showAddStartup, setShowAddStartup] = useState(false);
@@ -140,7 +140,7 @@ export default function RoundDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/rounds/${roundId}/criteria`] });
       setShowCriteriaForm(false);
-      setCriteriaForm({ name: "", description: "", order: criteria.length });
+      setCriteriaForm({ name: "", description: "", type: "scale", scaleMin: 1, scaleMax: 5, order: criteria.length, weight: 1 });
       toast({ title: "Criteria added" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -232,7 +232,7 @@ export default function RoundDetail() {
 
   const openEditCriteria = (c: any) => {
     setEditCriteria(c);
-    setCriteriaForm({ name: c.name, description: c.description || "", type: c.type || "scale", scaleMin: c.scaleMin ?? 1, scaleMax: c.scaleMax ?? 5, order: c.order || 0 });
+    setCriteriaForm({ name: c.name, description: c.description || "", type: c.type || "scale", scaleMin: c.scaleMin ?? 1, scaleMax: c.scaleMax ?? 5, order: c.order || 0, weight: c.weight ?? 1 });
   };
 
   const handleCriteriaSubmit = () => {
@@ -300,7 +300,7 @@ export default function RoundDetail() {
                 <p className="text-sm text-gray-500">
                   Define what jury members will score for this round. Each criterion is scored 1–5.
                 </p>
-                <Button onClick={() => { setShowCriteriaForm(true); setCriteriaForm({ name: "", description: "", order: criteria.length }); }}>
+                <Button onClick={() => { setShowCriteriaForm(true); setCriteriaForm({ name: "", description: "", type: "scale", scaleMin: 1, scaleMax: 5, order: criteria.length, weight: 1 }); }}>
                   <Plus className="h-4 w-4 mr-2" /> Add Criterion
                 </Button>
               </div>
@@ -338,15 +338,20 @@ export default function RoundDetail() {
                             <TableCell className="font-medium">{c.name}</TableCell>
                             <TableCell className="text-sm text-gray-500">{c.description || "—"}</TableCell>
                             <TableCell>
-                              {c.type === "scale" && (
-                                <Badge variant="outline" className="gap-1"><Hash className="h-3 w-3" />Scale {c.scaleMin ?? 1}–{c.scaleMax ?? 5}</Badge>
-                              )}
-                              {c.type === "binary" && (
-                                <Badge variant="outline" className="gap-1"><ToggleLeft className="h-3 w-3" />Yes / No</Badge>
-                              )}
-                              {c.type === "text" && (
-                                <Badge variant="outline" className="gap-1"><AlignLeft className="h-3 w-3" />Text</Badge>
-                              )}
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {c.type === "scale" && (
+                                  <Badge variant="outline" className="gap-1"><Hash className="h-3 w-3" />Scale {c.scaleMin ?? 1}–{c.scaleMax ?? 5}</Badge>
+                                )}
+                                {c.type === "binary" && (
+                                  <Badge variant="outline" className="gap-1"><ToggleLeft className="h-3 w-3" />Yes / No</Badge>
+                                )}
+                                {c.type === "text" && (
+                                  <Badge variant="outline" className="gap-1"><AlignLeft className="h-3 w-3" />Text</Badge>
+                                )}
+                                {(c.weight ?? 1) !== 1 && (
+                                  <Badge className="gap-1 bg-amber-100 text-amber-800 border-amber-200">×{c.weight}</Badge>
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell>
                               <div className="flex gap-1">
@@ -554,6 +559,18 @@ export default function RoundDetail() {
                 </p>
               </div>
             )}
+            <div>
+              <Label>Weight</Label>
+              <Input
+                type="number"
+                value={criteriaForm.weight}
+                min={1}
+                step={1}
+                onChange={e => setCriteriaForm(f => ({ ...f, weight: parseFloat(e.target.value) || 1 }))}
+                className="mt-1"
+              />
+              <p className="text-xs text-gray-400 mt-1">Score × weight = contribution to total (default 1)</p>
+            </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => { setShowCriteriaForm(false); setEditCriteria(null); }}>Cancel</Button>
               <Button onClick={handleCriteriaSubmit} disabled={createCriteriaMutation.isPending || updateCriteriaMutation.isPending}>
