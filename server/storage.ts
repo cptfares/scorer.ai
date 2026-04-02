@@ -180,6 +180,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteCohort(id: number): Promise<void> {
+    // Delete all rounds (and their dependents) first
+    const { data: rounds } = await supabaseAdmin.from("rounds").select("id").eq("cohort_id", id);
+    for (const round of rounds || []) {
+      await this.deleteRound(round.id);
+    }
+    // Detach startups from this cohort instead of deleting them
+    await supabaseAdmin.from("startups").update({ cohort_id: null }).eq("cohort_id", id);
     const { error } = await supabaseAdmin.from("cohorts").delete().eq("id", id);
     if (error) throw error;
   }
@@ -215,6 +222,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteRound(id: number): Promise<void> {
+    // Delete dependent records first to avoid FK violations
+    await supabaseAdmin.from("evaluations").delete().eq("round_id", id);
+    await supabaseAdmin.from("jury_assignments").delete().eq("round_id", id);
+    await supabaseAdmin.from("round_startups").delete().eq("round_id", id);
+    await supabaseAdmin.from("round_criteria").delete().eq("round_id", id);
     const { error } = await supabaseAdmin.from("rounds").delete().eq("id", id);
     if (error) throw error;
   }

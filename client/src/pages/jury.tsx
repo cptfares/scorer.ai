@@ -31,7 +31,7 @@ export default function Jury() {
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedJury, setSelectedJury] = useState<any>(null);
   const [selectedStartups, setSelectedStartups] = useState<number[]>([]);
-  const [invitationResult, setInvitationResult] = useState<{ email: string, name: string, password: string, role: string } | null>(null);
+  const [invitationResult, setInvitationResult] = useState<{ email: string, name: string, role: string } | null>(null);
   const { toast } = useToast();
 
   const { data: users, isLoading } = useQuery({
@@ -77,8 +77,7 @@ export default function Jury() {
       setInvitationResult({
         email: variables.email,
         name: variables.name,
-        password: data.password,
-        role: variables.role
+        role: variables.role,
       });
 
       toast({
@@ -507,51 +506,21 @@ export default function Jury() {
             </DialogContent>
           </Dialog>
 
-          {/* New Centered Success Dialog for Invitation Results */}
+          {/* Success Dialog after jury creation */}
           <Dialog open={!!invitationResult} onOpenChange={(open) => !open && setInvitationResult(null)}>
-            <DialogContent className="sm:max-w-md text-center">
+            <DialogContent className="sm:max-w-sm text-center">
               <DialogHeader>
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <CheckCircle className="text-green-600" size={24} />
                 </div>
-                <DialogTitle className="text-xl">
-                  {invitationResult?.role.charAt(0).toUpperCase()}{invitationResult?.role.slice(1)} Created Successfully
-                </DialogTitle>
+                <DialogTitle className="text-xl">Jury is ready to be assigned</DialogTitle>
               </DialogHeader>
-
-              <div className="py-6 space-y-4">
-                <p className="text-slate-600">
-                  User accounts have been created in both Supabase and our system.
-                </p>
-
-                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-slate-500">Email:</span>
-                    <span className="font-medium text-slate-900">{invitationResult?.email}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm border-t pt-3 border-slate-200">
-                    <span className="text-slate-500">Password:</span>
-                    <span className="font-mono font-bold text-[#0F7894]">{invitationResult?.password}</span>
-                  </div>
-                </div>
-
-                <Button
-                  className="w-full bg-[#0F7894] hover:bg-[#0c6078]"
-                  onClick={() => {
-                    if (invitationResult) {
-                      const info = `your login information is email : ${invitationResult.email} and password : ${invitationResult.password}`;
-                      navigator.clipboard.writeText(info);
-                      toast({ title: "Portal Credentials Copied" });
-                    }
-                  }}
-                >
-                  Copy Login Information
-                </Button>
-
-                <p className="text-xs text-amber-600 font-medium">
-                  Please copy these credentials now. For security reasons, the password will not be shown again.
-                </p>
+              <div className="py-4">
+                <p className="text-slate-500 text-sm">{invitationResult?.name} has been added. You can now assign them to a round.</p>
               </div>
+              <Button className="w-full bg-[#0F7894] hover:bg-[#0c6078]" onClick={() => setInvitationResult(null)}>
+                Got it
+              </Button>
             </DialogContent>
           </Dialog>
         </div>

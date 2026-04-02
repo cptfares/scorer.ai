@@ -204,7 +204,20 @@ export default function Startups() {
 
   const handleEdit = (startup: any) => {
     setEditingStartup(startup);
-    form.reset(startup);
+    form.reset({
+      name: startup.name ?? "",
+      category: startup.category ?? "",
+      description: startup.description ?? "",
+      founded: startup.founded ?? "",
+      teamSize: startup.teamSize ?? "",
+      stage: startup.stage ?? "",
+      fundingSeek: startup.fundingSeek ?? "",
+      website: startup.website ?? "",
+      cohortId: startup.cohortId ?? null,
+      team: Array.isArray(startup.team) ? startup.team : [],
+      revenueModel: startup.revenueModel ?? "",
+      onePagerLink: startup.onePagerLink ?? "",
+    });
     setIsDialogOpen(true);
   };
 
@@ -329,7 +342,7 @@ export default function Startups() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Category</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value ?? ""}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Select category" />
@@ -429,7 +442,7 @@ export default function Startups() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Stage</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value ?? ""}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Select stage" />
