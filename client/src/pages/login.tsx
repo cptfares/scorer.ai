@@ -50,6 +50,7 @@ export default function Login() {
     },
     onSuccess: (data) => {
       toast({ title: "Login successful" });
+      localStorage.removeItem("jury_token");
       localStorage.setItem("user", JSON.stringify(data.user));
 
       const role = data.user.role;

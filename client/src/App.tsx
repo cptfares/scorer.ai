@@ -11,6 +11,7 @@ import Jury from "@/pages/jury";
 import EvaluationForm from "@/pages/evaluation-form";
 import JuryDashboard from "@/pages/jury-dashboard";
 import JuryScoresheet from "@/pages/jury-scoresheet";
+import JuryJoin from "@/pages/jury-join";
 import SetupPassword from "@/pages/setup-password";
 import FounderOnboarding from "@/pages/founder-onboarding";
 import EvaluationPage from "@/pages/founder/evaluation";
@@ -98,6 +99,7 @@ function Router() {
           <JuryScoresheet />
         </ProtectedRoute>
       </Route>
+      <Route path="/join/:roundId" component={JuryJoin} />
       <Route path="/evaluate/:startupId">
         <ProtectedRoute>
           <EvaluationForm />

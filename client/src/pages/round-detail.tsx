@@ -17,8 +17,69 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import {
   ChevronLeft, Plus, Pencil, Trash2, ClipboardList,
-  Rocket, Users, GripVertical, Check, ToggleLeft, AlignLeft, Hash
+  Rocket, Users, GripVertical, Check, ToggleLeft, AlignLeft, Hash,
+  Link2, Copy, KeyRound,
 } from "lucide-react";
+
+function JuryAccessPanel({ roundId }: { roundId: string }) {
+  const { toast } = useToast();
+  const { data, isLoading } = useQuery<{ joinUrl: string; codes: { id: number; name: string; email: string; code: string }[] }>({
+    queryKey: [`/api/rounds/${roundId}/jury-codes`],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/rounds/${roundId}/jury-codes`);
+      return res.json();
+    },
+  });
+
+  const copy = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: `${label} copied` });
+  };
+
+  if (isLoading) return null;
+  if (!data?.codes?.length) return null;
+
+  return (
+    <Card className="border-[#0F7894]/20 bg-[#0F7894]/5">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2 text-[#0F7894]">
+          <KeyRound className="h-4 w-4" />
+          Quick Access — share with jury members
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {/* Join link */}
+        <div className="flex items-center gap-2 bg-white rounded-lg border border-[#0F7894]/20 px-3 py-2">
+          <Link2 className="h-4 w-4 text-[#0F7894] shrink-0" />
+          <span className="text-sm text-gray-600 font-mono truncate flex-1">{data.joinUrl}</span>
+          <Button size="sm" variant="ghost" className="px-2 h-7 text-[#0F7894]" onClick={() => copy(data.joinUrl, "Link")}>
+            <Copy className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+
+        {/* Per-member codes */}
+        <div className="grid gap-2">
+          {data.codes.map(m => (
+            <div key={m.id} className="flex items-center gap-3 bg-white rounded-lg border border-gray-100 px-3 py-2">
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-gray-800 truncate">{m.name}</div>
+                <div className="text-xs text-gray-400 truncate">{m.email}</div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="font-mono text-sm font-bold tracking-widest text-[#0F7894] bg-[#0F7894]/10 px-2 py-0.5 rounded">
+                  {m.code}
+                </span>
+                <Button size="sm" variant="ghost" className="px-2 h-7" onClick={() => copy(m.code, "Code")}>
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function RoundDetail() {
   const { cohortId, roundId } = useParams<{ cohortId: string; roundId: string }>();
@@ -39,6 +100,7 @@ export default function RoundDetail() {
   const [assignJuryId, setAssignJuryId] = useState<string>("");
   const [assignStartupIds, setAssignStartupIds] = useState<number[]>([]);
   const [jurySearch, setJurySearch] = useState("");
+  const [assignedResult, setAssignedResult] = useState<{ name: string; code: string; joinUrl: string } | null>(null);
 
   const { data: round } = useQuery<any>({ queryKey: [`/api/rounds/${roundId}`] });
   const { data: criteria = [], isLoading: criteriaLoading } = useQuery<any[]>({
@@ -147,12 +209,23 @@ export default function RoundDetail() {
       });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: async (_, vars) => {
       queryClient.invalidateQueries({ queryKey: [`/api/jury-assignments`, roundId] });
-      setShowAssignJury(false);
-      setAssignJuryId("");
-      setAssignStartupIds([]);
-      toast({ title: "Jury assigned" });
+      queryClient.invalidateQueries({ queryKey: [`/api/rounds/${roundId}/jury-codes`] });
+      // Fetch the code for the just-assigned jury member
+      try {
+        const res = await apiRequest("GET", `/api/rounds/${roundId}/jury-codes`);
+        const data = await res.json();
+        const member = data.codes.find((c: any) => c.id === vars.juryId);
+        if (member) {
+          setAssignedResult({ name: member.name, code: member.code, joinUrl: data.joinUrl });
+        }
+      } catch {
+        toast({ title: "Jury assigned" });
+        setShowAssignJury(false);
+        setAssignJuryId("");
+        setAssignStartupIds([]);
+      }
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -368,6 +441,9 @@ export default function RoundDetail() {
                 </Button>
               </div>
 
+              {/* Quick Access — join link + per-jury codes */}
+              <JuryAccessPanel roundId={roundId!} />
+
               {Object.keys(assignmentsByJury).length === 0 ? (
                 <Card>
                   <CardContent className="flex flex-col items-center justify-center py-12 text-center">
@@ -547,86 +623,135 @@ export default function RoundDetail() {
       </Dialog>
 
       {/* Assign Jury Dialog */}
-      <Dialog open={showAssignJury} onOpenChange={(open) => { setShowAssignJury(open); if (!open) { setJurySearch(""); setAssignJuryId(""); setAssignStartupIds([]); } }}>
+      <Dialog open={showAssignJury} onOpenChange={(open) => {
+        setShowAssignJury(open);
+        if (!open) { setJurySearch(""); setAssignJuryId(""); setAssignStartupIds([]); setAssignedResult(null); }
+      }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Assign Jury Member</DialogTitle>
+            <DialogTitle>{assignedResult ? "Jury Assigned" : "Assign Jury Member"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Jury Member</Label>
-              <Input
-                className="mt-1 mb-2"
-                placeholder="Search by name or email..."
-                value={jurySearch}
-                onChange={e => setJurySearch(e.target.value)}
-              />
-              <div className="border rounded-md divide-y max-h-40 overflow-y-auto">
-                {juryUsers
-                  .filter((u: any) =>
-                    !jurySearch ||
-                    u.name?.toLowerCase().includes(jurySearch.toLowerCase()) ||
-                    u.email?.toLowerCase().includes(jurySearch.toLowerCase())
-                  )
-                  .map((u: any) => (
+
+          {assignedResult ? (
+            /* ── Step 2: show link + code ── */
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                Share the link and code below with <span className="font-semibold">{assignedResult.name}</span> so they can join directly.
+              </p>
+
+              {/* Join link */}
+              <div>
+                <Label className="text-xs text-gray-500 mb-1 block">Round join link</Label>
+                <div className="flex items-center gap-2 bg-gray-50 border rounded-lg px-3 py-2">
+                  <Link2 className="h-4 w-4 text-gray-400 shrink-0" />
+                  <span className="text-sm font-mono text-gray-700 truncate flex-1">{assignedResult.joinUrl}</span>
+                  <Button size="sm" variant="ghost" className="px-2 h-7 shrink-0" onClick={() => { navigator.clipboard.writeText(assignedResult.joinUrl); toast({ title: "Link copied" }); }}>
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Code */}
+              <div>
+                <Label className="text-xs text-gray-500 mb-1 block">Access code for {assignedResult.name}</Label>
+                <div className="flex items-center gap-3 bg-[#0F7894]/5 border border-[#0F7894]/20 rounded-lg px-4 py-3">
+                  <KeyRound className="h-5 w-5 text-[#0F7894] shrink-0" />
+                  <span className="font-mono text-2xl font-bold tracking-[0.3em] text-[#0F7894] flex-1">
+                    {assignedResult.code}
+                  </span>
+                  <Button size="sm" variant="ghost" className="px-2 h-7 shrink-0" onClick={() => { navigator.clipboard.writeText(assignedResult.code); toast({ title: "Code copied" }); }}>
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => { setAssignedResult(null); setAssignJuryId(""); setAssignStartupIds([]); }}>
+                  Assign another
+                </Button>
+                <Button className="bg-[#0F7894] hover:bg-[#0c6078] text-white" onClick={() => { setShowAssignJury(false); setAssignedResult(null); }}>
+                  Done
+                </Button>
+              </div>
+            </div>
+          ) : (
+            /* ── Step 1: assign form ── */
+            <div className="space-y-4">
+              <div>
+                <Label>Jury Member</Label>
+                <Input
+                  className="mt-1 mb-2"
+                  placeholder="Search by name or email..."
+                  value={jurySearch}
+                  onChange={e => setJurySearch(e.target.value)}
+                />
+                <div className="border rounded-md divide-y max-h-40 overflow-y-auto">
+                  {juryUsers
+                    .filter((u: any) =>
+                      !jurySearch ||
+                      u.name?.toLowerCase().includes(jurySearch.toLowerCase()) ||
+                      u.email?.toLowerCase().includes(jurySearch.toLowerCase())
+                    )
+                    .map((u: any) => (
+                      <button
+                        key={u.id}
+                        type="button"
+                        className={`w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 text-left ${assignJuryId === u.id.toString() ? "bg-[#0F7894]/5" : ""}`}
+                        onClick={() => setAssignJuryId(u.id.toString())}
+                      >
+                        <div>
+                          <p className="text-sm font-medium">{u.name}</p>
+                          <p className="text-xs text-gray-400">{u.email}</p>
+                        </div>
+                        {assignJuryId === u.id.toString() && <Check className="h-4 w-4 text-[#0F7894] shrink-0" />}
+                      </button>
+                    ))}
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <Label>Startups to Evaluate</Label>
+                  {roundStartups.length > 0 && (
                     <button
-                      key={u.id}
                       type="button"
-                      className={`w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 text-left ${assignJuryId === u.id.toString() ? "bg-[#0F7894]/5" : ""}`}
-                      onClick={() => setAssignJuryId(u.id.toString())}
+                      className="text-xs text-[#0F7894] hover:underline"
+                      onClick={() => {
+                        const allIds = roundStartups.map((s: any) => s.id);
+                        const allSelected = allIds.every((id: number) => assignStartupIds.includes(id));
+                        setAssignStartupIds(allSelected ? [] : allIds);
+                      }}
                     >
-                      <div>
-                        <p className="text-sm font-medium">{u.name}</p>
-                        <p className="text-xs text-gray-400">{u.email}</p>
-                      </div>
-                      {assignJuryId === u.id.toString() && <Check className="h-4 w-4 text-[#0F7894] shrink-0" />}
+                      {roundStartups.every((s: any) => assignStartupIds.includes(s.id)) ? "Deselect all" : "Select all"}
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-gray-400 mb-2">Select which startups this jury member will evaluate</p>
+                <div className="border rounded-md divide-y max-h-48 overflow-y-auto">
+                  {roundStartups.length === 0 ? (
+                    <p className="text-sm text-gray-400 p-3">No startups in this round yet</p>
+                  ) : roundStartups.map((s: any) => (
+                    <button
+                      key={s.id}
+                      className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 text-left"
+                      onClick={() => toggleAssignStartup(s.id)}
+                    >
+                      <span className="text-sm">{s.name}</span>
+                      {assignStartupIds.includes(s.id) && <Check className="h-4 w-4 text-[#0F7894]" />}
                     </button>
                   ))}
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowAssignJury(false)}>Cancel</Button>
+                <Button
+                  onClick={() => assignJuryId && assignJuryMutation.mutate({ juryId: parseInt(assignJuryId), startupIds: assignStartupIds })}
+                  disabled={!assignJuryId || assignStartupIds.length === 0 || assignJuryMutation.isPending}
+                >
+                  Assign ({assignStartupIds.length} startups)
+                </Button>
               </div>
             </div>
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <Label>Startups to Evaluate</Label>
-                {roundStartups.length > 0 && (
-                  <button
-                    type="button"
-                    className="text-xs text-[#0F7894] hover:underline"
-                    onClick={() => {
-                      const allIds = roundStartups.map((s: any) => s.id);
-                      const allSelected = allIds.every((id: number) => assignStartupIds.includes(id));
-                      setAssignStartupIds(allSelected ? [] : allIds);
-                    }}
-                  >
-                    {roundStartups.every((s: any) => assignStartupIds.includes(s.id)) ? "Deselect all" : "Select all"}
-                  </button>
-                )}
-              </div>
-              <p className="text-xs text-gray-400 mb-2">Select which startups this jury member will evaluate</p>
-              <div className="border rounded-md divide-y max-h-48 overflow-y-auto">
-                {roundStartups.length === 0 ? (
-                  <p className="text-sm text-gray-400 p-3">No startups in this round yet</p>
-                ) : roundStartups.map((s: any) => (
-                  <button
-                    key={s.id}
-                    className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 text-left"
-                    onClick={() => toggleAssignStartup(s.id)}
-                  >
-                    <span className="text-sm">{s.name}</span>
-                    {assignStartupIds.includes(s.id) && <Check className="h-4 w-4 text-[#0F7894]" />}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowAssignJury(false)}>Cancel</Button>
-              <Button
-                onClick={() => assignJuryId && assignJuryMutation.mutate({ juryId: parseInt(assignJuryId), startupIds: assignStartupIds })}
-                disabled={!assignJuryId || assignStartupIds.length === 0 || assignJuryMutation.isPending}
-              >
-                Assign ({assignStartupIds.length} startups)
-              </Button>
-            </div>
-          </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

@@ -43,6 +43,20 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Set Azure App Service environment variables
+        run: |
+          RG=$(az webapp list --query "[?name=='smu-scorer-app'].resourceGroup" -o tsv)
+          az webapp config appsettings set \
+            --name smu-scorer-app \
+            --resource-group "$RG" \
+            --settings \
+              SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
+              SUPABASE_SERVICE_ROLE_KEY="${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+              SUPABASE_JWT_SECRET="${{ secrets.SUPABASE_JWT_SECRET }}" \
+              SUPABASE_PUBLISHABLE_KEY="${{ secrets.SUPABASE_PUBLISHABLE_KEY }}" \
+              NODE_ENV="production" \
+              PORT="5000"
+
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v2
         with:

@@ -9,16 +9,24 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+async function getAuthToken(): Promise<string | null> {
+  // Code-based jury login takes explicit priority over any Supabase session
+  const juryToken = localStorage.getItem("jury_token");
+  if (juryToken) return juryToken;
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token ?? null;
+}
+
 export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  const { data: { session } } = await supabase.auth.getSession();
+  const token = await getAuthToken();
   const headers: Record<string, string> = data ? { "Content-Type": "application/json" } : {};
 
-  if (session?.access_token) {
-    headers["Authorization"] = `Bearer ${session.access_token}`;
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
   }
 
   const res = await fetch(url, {
@@ -37,11 +45,11 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
     async ({ queryKey }) => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const token = await getAuthToken();
       const headers: Record<string, string> = {};
 
-      if (session?.access_token) {
-        headers["Authorization"] = `Bearer ${session.access_token}`;
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
       }
 
       const res = await fetch(queryKey[0] as string, {

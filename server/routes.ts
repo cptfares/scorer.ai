@@ -9,6 +9,18 @@ import {
 import { z } from "zod";
 import { supabaseAdmin } from "./supabase";
 import bcrypt from "bcrypt";
+import crypto from "crypto";
+import jwt from "jsonwebtoken";
+
+// Stable 6-char code per jury user derived from their ID + server secret
+function getJuryCode(userId: number): string {
+  const secret = process.env.SUPABASE_JWT_SECRET || "default-secret";
+  return crypto.createHmac("sha256", secret)
+    .update(String(userId))
+    .digest("hex")
+    .slice(0, 6)
+    .toUpperCase();
+}
 
 async function authenticateUser(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
@@ -44,9 +56,13 @@ function requireAdmin(req: any, res: Response, next: NextFunction) {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api", (req, res, next) => {
-    if (req.path === "/auth/login" || req.path === "/auth/logout" || req.method === "OPTIONS") {
-      return next();
-    }
+    if (
+      req.path === "/auth/login" ||
+      req.path === "/auth/logout" ||
+      req.path === "/auth/jury-join" ||
+      /^\/rounds\/\d+\/public$/.test(req.path) ||
+      req.method === "OPTIONS"
+    ) return next();
     authenticateUser(req, res, next);
   });
 
@@ -65,6 +81,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/auth/me", (req: any, res) => {
     if (req.user) res.json({ user: req.user });
     else res.status(401).json({ error: "Not authenticated" });
+  });
+
+  // ── Jury code login ──────────────────────────────────────
+  // Public endpoint: jury member visits /join/:roundId, enters their code
+  app.post("/api/auth/jury-join", async (req, res) => {
+    try {
+      const { roundId, code } = req.body;
+      if (!roundId || !code) return res.status(400).json({ error: "roundId and code required" });
+
+      // Get all jury members assigned to this round
+      const { data: assignments, error: assignErr } = await supabaseAdmin
+        .from("jury_assignments")
+        .select("jury_id")
+        .eq("round_id", parseInt(roundId));
+
+      if (assignErr) return res.status(500).json({ error: "Failed to fetch assignments" });
+
+      const juryIds = [...new Set((assignments || []).map((a: any) => a.jury_id))] as number[];
+      const users = (await Promise.all(juryIds.map(id => storage.getUser(id)))).filter(Boolean) as any[];
+
+      const user = users.find(u => getJuryCode(u.id) === code.trim().toUpperCase());
+      if (!user) return res.status(401).json({ error: "Invalid code" });
+
+      // Issue a signed JWT the existing authenticateUser middleware can decode
+      const secret = process.env.SUPABASE_JWT_SECRET || "default-secret";
+      const token = jwt.sign(
+        { email: user.email, role: user.role, id: user.id },
+        secret,
+        { expiresIn: "7d" }
+      );
+
+      res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+    } catch { res.status(500).json({ error: "Join failed" }); }
+  });
+
+  // Public: basic round info for the join page (no auth required)
+  app.get("/api/rounds/:id/public", async (req, res) => {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from("rounds")
+        .select("id, name, description, cohorts(name)")
+        .eq("id", req.params.id)
+        .single();
+      if (error || !data) return res.status(404).json({ error: "Round not found" });
+      res.json(data);
+    } catch { res.status(500).json({ error: "Failed to fetch round" }); }
+  });
+
+  // Admin: get jury codes for a round (to distribute to members)
+  app.get("/api/rounds/:id/jury-codes", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const roundId = parseInt(req.params.id);
+      const { data: assignments } = await supabaseAdmin
+        .from("jury_assignments")
+        .select("jury_id")
+        .eq("round_id", roundId);
+
+      const juryIds = [...new Set((assignments || []).map((a: any) => a.jury_id))] as number[];
+      const users = (await Promise.all(juryIds.map(id => storage.getUser(id)))).filter(Boolean) as any[];
+
+      const origin = (req.headers.origin as string) || `http://localhost:5000`;
+      res.json({
+        joinUrl: `${origin}/join/${roundId}`,
+        codes: users.map(u => ({ id: u.id, name: u.name, email: u.email, code: getJuryCode(u.id) })),
+      });
+    } catch { res.status(500).json({ error: "Failed to fetch codes" }); }
   });
 
   // ── Users ────────────────────────────────────────────────
