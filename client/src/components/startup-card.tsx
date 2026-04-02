@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { Eye, Edit, Layers, ListOrdered, CheckCircle2, Clock } from "lucide-react";
+import { Eye, Edit, Layers, ListOrdered, CheckCircle2, Clock, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Startup } from "@shared/schema";
 
@@ -47,7 +47,21 @@ export default function StartupCard({
 
         {/* Description */}
         {startup.description && (
-          <p className="text-sm text-gray-500 mb-4 line-clamp-2">{startup.description}</p>
+          <p className="text-sm text-gray-500 mb-3 line-clamp-2">{startup.description}</p>
+        )}
+
+        {/* Website */}
+        {startup.website && (
+          <a
+            href={startup.website.startsWith("http") ? startup.website : `https://${startup.website}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-[#0F7894] hover:underline mb-3"
+            onClick={e => e.stopPropagation()}
+          >
+            <Globe size={11} />
+            {startup.website}
+          </a>
         )}
 
         {/* Cohort + Round */}
