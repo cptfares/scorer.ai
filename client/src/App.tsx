@@ -10,6 +10,7 @@ import Startups from "@/pages/startups";
 import Jury from "@/pages/jury";
 import EvaluationForm from "@/pages/evaluation-form";
 import JuryDashboard from "@/pages/jury-dashboard";
+import JuryScoresheet from "@/pages/jury-scoresheet";
 import SetupPassword from "@/pages/setup-password";
 import FounderOnboarding from "@/pages/founder-onboarding";
 import EvaluationPage from "@/pages/founder/evaluation";
@@ -90,6 +91,11 @@ function Router() {
       <Route path="/jury-dashboard">
         <ProtectedRoute>
           <JuryDashboard />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/jury-scoresheet">
+        <ProtectedRoute>
+          <JuryScoresheet />
         </ProtectedRoute>
       </Route>
       <Route path="/evaluate/:startupId">

@@ -12,7 +12,8 @@ import {
   LogOut,
   User,
   Eye,
-  ListOrdered
+  ListOrdered,
+  Table2,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import logo from "@/assets/logo.png";
@@ -217,11 +218,21 @@ export default function JuryDashboard() {
             return (
               <Card key={roundKey}>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-[hsl(var(--gray-700))]">
-                    <ListOrdered className="h-5 w-5 text-[#0F7894]" />
-                    {round ? round.name : "Assigned Startups"}
-                    <Badge variant="outline">{roundStartups.length} startups</Badge>
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2 text-[hsl(var(--gray-700))]">
+                      <ListOrdered className="h-5 w-5 text-[#0F7894]" />
+                      {round ? round.name : "Assigned Startups"}
+                      <Badge variant="outline">{roundStartups.length} startups</Badge>
+                    </CardTitle>
+                    {roundKey !== "legacy" && (
+                      <Link href={`/jury-scoresheet?roundId=${roundKey}`}>
+                        <Button size="sm" className="bg-[#0F7894] hover:bg-[#0c6078] text-white">
+                          <Table2 size={14} className="mr-1.5" />
+                          Grade All
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
                   {round?.description && (
                     <p className="text-sm text-gray-500">{round.description}</p>
                   )}
