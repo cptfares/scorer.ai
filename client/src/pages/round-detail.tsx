@@ -97,10 +97,9 @@ export default function RoundDetail() {
 
   // Jury assignment state
   const [showAssignJury, setShowAssignJury] = useState(false);
-  const [assignJuryId, setAssignJuryId] = useState<string>("");
+  const [assignJuryIds, setAssignJuryIds] = useState<number[]>([]);
   const [assignStartupIds, setAssignStartupIds] = useState<number[]>([]);
   const [jurySearch, setJurySearch] = useState("");
-  const [assignedResult, setAssignedResult] = useState<{ name: string; code: string; joinUrl: string } | null>(null);
 
   const { data: round } = useQuery<any>({ queryKey: [`/api/rounds/${roundId}`] });
   const { data: criteria = [], isLoading: criteriaLoading } = useQuery<any[]>({
@@ -201,31 +200,22 @@ export default function RoundDetail() {
 
   // Jury assignment mutation
   const assignJuryMutation = useMutation({
-    mutationFn: async ({ juryId, startupIds }: { juryId: number; startupIds: number[] }) => {
-      const res = await apiRequest("POST", "/api/jury-assignments/bulk", {
-        juryId,
-        startupIds,
-        roundId: parseInt(roundId)
-      });
-      return res.json();
+    mutationFn: async ({ juryIds, startupIds }: { juryIds: number[]; startupIds: number[] }) => {
+      for (const juryId of juryIds) {
+        await apiRequest("POST", "/api/jury-assignments/bulk", {
+          juryId,
+          startupIds,
+          roundId: parseInt(roundId)
+        });
+      }
     },
-    onSuccess: async (_, vars) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/jury-assignments`, roundId] });
       queryClient.invalidateQueries({ queryKey: [`/api/rounds/${roundId}/jury-codes`] });
-      // Fetch the code for the just-assigned jury member
-      try {
-        const res = await apiRequest("GET", `/api/rounds/${roundId}/jury-codes`);
-        const data = await res.json();
-        const member = data.codes.find((c: any) => c.id === vars.juryId);
-        if (member) {
-          setAssignedResult({ name: member.name, code: member.code, joinUrl: data.joinUrl });
-        }
-      } catch {
-        toast({ title: "Jury assigned" });
-        setShowAssignJury(false);
-        setAssignJuryId("");
-        setAssignStartupIds([]);
-      }
+      toast({ title: "Jury assigned", description: `${assignJuryIds.length} jury member${assignJuryIds.length > 1 ? "s" : ""} assigned to ${assignStartupIds.length} startup${assignStartupIds.length > 1 ? "s" : ""}` });
+      setShowAssignJury(false);
+      setAssignJuryIds([]);
+      setAssignStartupIds([]);
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -244,6 +234,12 @@ export default function RoundDetail() {
   const toggleAssignStartup = (startupId: number) => {
     setAssignStartupIds(ids =>
       ids.includes(startupId) ? ids.filter(id => id !== startupId) : [...ids, startupId]
+    );
+  };
+
+  const toggleAssignJury = (juryId: number) => {
+    setAssignJuryIds(ids =>
+      ids.includes(juryId) ? ids.filter(id => id !== juryId) : [...ids, juryId]
     );
   };
 
@@ -642,133 +638,119 @@ export default function RoundDetail() {
       {/* Assign Jury Dialog */}
       <Dialog open={showAssignJury} onOpenChange={(open) => {
         setShowAssignJury(open);
-        if (!open) { setJurySearch(""); setAssignJuryId(""); setAssignStartupIds([]); setAssignedResult(null); }
+        if (!open) { setJurySearch(""); setAssignJuryIds([]); setAssignStartupIds([]); }
       }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{assignedResult ? "Jury Assigned" : "Assign Jury Member"}</DialogTitle>
+            <DialogTitle>Assign Jury Members</DialogTitle>
           </DialogHeader>
 
-          {assignedResult ? (
-            /* ── Step 2: show link + code ── */
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600">
-                Share the link and code below with <span className="font-semibold">{assignedResult.name}</span> so they can join directly.
-              </p>
-
-              {/* Join link */}
-              <div>
-                <Label className="text-xs text-gray-500 mb-1 block">Round join link</Label>
-                <div className="flex items-center gap-2 bg-gray-50 border rounded-lg px-3 py-2">
-                  <Link2 className="h-4 w-4 text-gray-400 shrink-0" />
-                  <span className="text-sm font-mono text-gray-700 truncate flex-1">{assignedResult.joinUrl}</span>
-                  <Button size="sm" variant="ghost" className="px-2 h-7 shrink-0" onClick={() => { navigator.clipboard.writeText(assignedResult.joinUrl); toast({ title: "Link copied" }); }}>
-                    <Copy className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
+          {/* Assign form */}
+          <div className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <Label>Jury Members</Label>
+                {juryUsers.length > 0 && (
+                  <button
+                    type="button"
+                    className="text-xs text-[#0F7894] hover:underline"
+                    onClick={() => {
+                      const filteredIds = juryUsers
+                        .filter((u: any) =>
+                          !jurySearch ||
+                          u.name?.toLowerCase().includes(jurySearch.toLowerCase()) ||
+                          u.email?.toLowerCase().includes(jurySearch.toLowerCase())
+                        )
+                        .map((u: any) => u.id);
+                      const allSelected = filteredIds.every((id: number) => assignJuryIds.includes(id));
+                      setAssignJuryIds(allSelected ? assignJuryIds.filter(id => !filteredIds.includes(id)) : [...new Set([...assignJuryIds, ...filteredIds])]);
+                    }}
+                  >
+                    {juryUsers
+                      .filter((u: any) =>
+                        !jurySearch ||
+                        u.name?.toLowerCase().includes(jurySearch.toLowerCase()) ||
+                        u.email?.toLowerCase().includes(jurySearch.toLowerCase())
+                      )
+                      .every((u: any) => assignJuryIds.includes(u.id)) ? "Deselect all" : "Select all"}
+                  </button>
+                )}
               </div>
-
-              {/* Code */}
-              <div>
-                <Label className="text-xs text-gray-500 mb-1 block">Access code for {assignedResult.name}</Label>
-                <div className="flex items-center gap-3 bg-[#0F7894]/5 border border-[#0F7894]/20 rounded-lg px-4 py-3">
-                  <KeyRound className="h-5 w-5 text-[#0F7894] shrink-0" />
-                  <span className="font-mono text-2xl font-bold tracking-[0.3em] text-[#0F7894] flex-1">
-                    {assignedResult.code}
-                  </span>
-                  <Button size="sm" variant="ghost" className="px-2 h-7 shrink-0" onClick={() => { navigator.clipboard.writeText(assignedResult.code); toast({ title: "Code copied" }); }}>
-                    <Copy className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={() => { setAssignedResult(null); setAssignJuryId(""); setAssignStartupIds([]); }}>
-                  Assign another
-                </Button>
-                <Button className="bg-[#0F7894] hover:bg-[#0c6078] text-white" onClick={() => { setShowAssignJury(false); setAssignedResult(null); }}>
-                  Done
-                </Button>
-              </div>
-            </div>
-          ) : (
-            /* ── Step 1: assign form ── */
-            <div className="space-y-4">
-              <div>
-                <Label>Jury Member</Label>
-                <Input
-                  className="mt-1 mb-2"
-                  placeholder="Search by name or email..."
-                  value={jurySearch}
-                  onChange={e => setJurySearch(e.target.value)}
-                />
-                <div className="border rounded-md divide-y max-h-40 overflow-y-auto">
-                  {juryUsers
-                    .filter((u: any) =>
-                      !jurySearch ||
-                      u.name?.toLowerCase().includes(jurySearch.toLowerCase()) ||
-                      u.email?.toLowerCase().includes(jurySearch.toLowerCase())
-                    )
-                    .map((u: any) => (
-                      <button
-                        key={u.id}
-                        type="button"
-                        className={`w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 text-left ${assignJuryId === u.id.toString() ? "bg-[#0F7894]/5" : ""}`}
-                        onClick={() => setAssignJuryId(u.id.toString())}
-                      >
-                        <div>
-                          <p className="text-sm font-medium">{u.name}</p>
-                          <p className="text-xs text-gray-400">{u.email}</p>
-                        </div>
-                        {assignJuryId === u.id.toString() && <Check className="h-4 w-4 text-[#0F7894] shrink-0" />}
-                      </button>
-                    ))}
-                </div>
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <Label>Startups to Evaluate</Label>
-                  {roundStartups.length > 0 && (
+              <Input
+                className="mt-1 mb-2"
+                placeholder="Search by name or email..."
+                value={jurySearch}
+                onChange={e => setJurySearch(e.target.value)}
+              />
+              <div className="border rounded-md divide-y max-h-40 overflow-y-auto">
+                {juryUsers
+                  .filter((u: any) =>
+                    !jurySearch ||
+                    u.name?.toLowerCase().includes(jurySearch.toLowerCase()) ||
+                    u.email?.toLowerCase().includes(jurySearch.toLowerCase())
+                  )
+                  .map((u: any) => (
                     <button
+                      key={u.id}
                       type="button"
-                      className="text-xs text-[#0F7894] hover:underline"
-                      onClick={() => {
-                        const allIds = roundStartups.map((s: any) => s.id);
-                        const allSelected = allIds.every((id: number) => assignStartupIds.includes(id));
-                        setAssignStartupIds(allSelected ? [] : allIds);
-                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 text-left ${assignJuryIds.includes(u.id) ? "bg-[#0F7894]/5" : ""}`}
+                      onClick={() => toggleAssignJury(u.id)}
                     >
-                      {roundStartups.every((s: any) => assignStartupIds.includes(s.id)) ? "Deselect all" : "Select all"}
-                    </button>
-                  )}
-                </div>
-                <p className="text-xs text-gray-400 mb-2">Select which startups this jury member will evaluate</p>
-                <div className="border rounded-md divide-y max-h-48 overflow-y-auto">
-                  {roundStartups.length === 0 ? (
-                    <p className="text-sm text-gray-400 p-3">No startups in this round yet</p>
-                  ) : roundStartups.map((s: any) => (
-                    <button
-                      key={s.id}
-                      className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 text-left"
-                      onClick={() => toggleAssignStartup(s.id)}
-                    >
-                      <span className="text-sm">{s.name}</span>
-                      {assignStartupIds.includes(s.id) && <Check className="h-4 w-4 text-[#0F7894]" />}
+                      <div>
+                        <p className="text-sm font-medium">{u.name}</p>
+                        <p className="text-xs text-gray-400">{u.email}</p>
+                      </div>
+                      {assignJuryIds.includes(u.id) && <Check className="h-4 w-4 text-[#0F7894] shrink-0" />}
                     </button>
                   ))}
-                </div>
               </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowAssignJury(false)}>Cancel</Button>
-                <Button
-                  onClick={() => assignJuryId && assignJuryMutation.mutate({ juryId: parseInt(assignJuryId), startupIds: assignStartupIds })}
-                  disabled={!assignJuryId || assignStartupIds.length === 0 || assignJuryMutation.isPending}
-                >
-                  Assign ({assignStartupIds.length} startups)
-                </Button>
+              {assignJuryIds.length > 0 && (
+                <p className="text-xs text-[#0F7894] mt-1">{assignJuryIds.length} jury member{assignJuryIds.length > 1 ? "s" : ""} selected</p>
+              )}
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <Label>Startups to Evaluate</Label>
+                {roundStartups.length > 0 && (
+                  <button
+                    type="button"
+                    className="text-xs text-[#0F7894] hover:underline"
+                    onClick={() => {
+                      const allIds = roundStartups.map((s: any) => s.id);
+                      const allSelected = allIds.every((id: number) => assignStartupIds.includes(id));
+                      setAssignStartupIds(allSelected ? [] : allIds);
+                    }}
+                  >
+                    {roundStartups.every((s: any) => assignStartupIds.includes(s.id)) ? "Deselect all" : "Select all"}
+                  </button>
+                )}
+              </div>
+              <p className="text-xs text-gray-400 mb-2">Select which startups the selected jury members will evaluate</p>
+              <div className="border rounded-md divide-y max-h-48 overflow-y-auto">
+                {roundStartups.length === 0 ? (
+                  <p className="text-sm text-gray-400 p-3">No startups in this round yet</p>
+                ) : roundStartups.map((s: any) => (
+                  <button
+                    key={s.id}
+                    className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 text-left"
+                    onClick={() => toggleAssignStartup(s.id)}
+                  >
+                    <span className="text-sm">{s.name}</span>
+                    {assignStartupIds.includes(s.id) && <Check className="h-4 w-4 text-[#0F7894]" />}
+                  </button>
+                ))}
               </div>
             </div>
-          )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowAssignJury(false)}>Cancel</Button>
+              <Button
+                onClick={() => assignJuryMutation.mutate({ juryIds: assignJuryIds, startupIds: assignStartupIds })}
+                disabled={assignJuryIds.length === 0 || assignStartupIds.length === 0 || assignJuryMutation.isPending}
+              >
+                Assign ({assignJuryIds.length} jury, {assignStartupIds.length} startups)
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
