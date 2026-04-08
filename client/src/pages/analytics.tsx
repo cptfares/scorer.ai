@@ -609,10 +609,10 @@ export default function Analytics() {
                         <TableRow>
                           <TableHead className="text-xs py-2 font-bold">Jury</TableHead>
                           {(roundCriteria as any[]).map((c: any) => (
-                            <TableHead key={c.id} className="text-xs text-center font-bold px-2 py-2">{c.name}</TableHead>
+                            <TableHead key={c.id} className={cn("text-xs text-center font-bold px-2 py-2", c.type === "text" && "print:hidden")}>{c.name}</TableHead>
                           ))}
                           <TableHead className="text-xs text-center font-bold py-2">Decision</TableHead>
-                          <TableHead className="text-xs py-2">Comments</TableHead>
+                          <TableHead className="text-xs py-2 print:hidden">Comments</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -623,7 +623,7 @@ export default function Analytics() {
                               {(roundCriteria as any[]).map((c: any) => {
                                 const val = e.scores?.[c.id.toString()];
                                 return (
-                                  <TableCell key={c.id} className={cn("py-2", c.type === "text" ? "text-left" : "text-center")}>
+                                  <TableCell key={c.id} className={cn("py-2", c.type === "text" ? "text-left print:hidden" : "text-center")}>
                                     {c.type === "scale" ? (
                                       <span className={cn(
                                         "inline-flex items-center justify-center w-7 h-7 rounded-full text-[11px] font-bold",
@@ -642,20 +642,39 @@ export default function Analytics() {
                                   {e.decision ?? "—"}
                                 </Badge>
                               </TableCell>
-                              {/* Comments: visible on screen, hidden on print (shown in row below instead) */}
                               <TableCell className="text-xs text-slate-500 py-2 print:hidden">
                                 <p className="whitespace-normal break-words">{e.comments || <span className="italic text-slate-300">—</span>}</p>
                               </TableCell>
                             </TableRow>
-                            {/* Print-only comments row */}
-                            {e.comments && (
-                              <TableRow key={`${e.id}-comment`} className="hidden print:table-row bg-slate-50/60">
-                                <TableCell colSpan={(roundCriteria as any[]).length + 3} className="px-4 py-2 text-xs text-slate-600 border-b border-slate-100">
-                                  <span className="font-semibold text-slate-400 uppercase tracking-wide text-[10px] mr-2">Comment:</span>
-                                  {e.comments}
-                                </TableCell>
-                              </TableRow>
-                            )}
+                            {/* Print-only comments row — shows text criteria + general comments */}
+                            {(() => {
+                              const textEntries = (roundCriteria as any[])
+                                .filter((c: any) => c.type === "text")
+                                .map((c: any) => ({ label: c.name, value: e.scores?.[c.id.toString()] }))
+                                .filter((x: any) => x.value);
+                              const hasContent = textEntries.length > 0 || e.comments;
+                              if (!hasContent) return null;
+                              return (
+                                <TableRow key={`${e.id}-comment`} className="hidden print:table-row bg-slate-50/60 border-b border-slate-200">
+                                  <TableCell colSpan={20} className="px-4 py-2">
+                                    <div className="space-y-1">
+                                      {textEntries.map((x: any) => (
+                                        <p key={x.label} className="text-xs text-slate-600">
+                                          <span className="font-semibold text-slate-400 uppercase tracking-wide text-[10px] mr-2">{x.label}:</span>
+                                          {x.value}
+                                        </p>
+                                      ))}
+                                      {e.comments && (
+                                        <p className="text-xs text-slate-600">
+                                          <span className="font-semibold text-slate-400 uppercase tracking-wide text-[10px] mr-2">Comments:</span>
+                                          {e.comments}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })()}
                           </>
                         ))}
                         {startupEvals.length === 0 && (
