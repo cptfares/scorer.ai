@@ -69,7 +69,10 @@ export interface IStorage {
   getEvaluation(juryId: number, startupId: number, roundId?: number): Promise<Evaluation | undefined>;
   getEvaluationsByStartupId(startupId: number): Promise<Evaluation[]>;
   createEvaluation(evaluation: InsertEvaluation): Promise<Evaluation>;
+  upsertEvaluation(evaluation: InsertEvaluation): Promise<Evaluation>;
   updateEvaluation(id: number, evaluation: Partial<InsertEvaluation>): Promise<Evaluation>;
+  getDuplicateEvaluations(): Promise<{ juryId: number; startupId: number; roundId: number | null; count: number; ids: number[] }[]>;
+  deduplicateEvaluations(): Promise<{ removed: number }>;
 
   // Decision labels
   getDecisionLabels(): Promise<DecisionLabel[]>;
@@ -451,6 +454,63 @@ export class DatabaseStorage implements IStorage {
       .eq("id", id).select().single();
     if (error) throw error;
     return toCamelCase(data) as Evaluation;
+  }
+
+  async upsertEvaluation(evaluation: InsertEvaluation): Promise<Evaluation> {
+    const existing = await this.getEvaluation(
+      evaluation.juryId!,
+      evaluation.startupId!,
+      evaluation.roundId ?? undefined
+    );
+    if (existing) {
+      return this.updateEvaluation(existing.id, evaluation);
+    }
+    return this.createEvaluation(evaluation);
+  }
+
+  async getDuplicateEvaluations(): Promise<{ juryId: number; startupId: number; roundId: number | null; count: number; ids: number[] }[]> {
+    const { data, error } = await supabaseAdmin.from("evaluations").select("*");
+    if (error) throw error;
+    const groups = new Map<string, any[]>();
+    for (const row of data || []) {
+      const key = `${row.jury_id}-${row.startup_id}-${row.round_id ?? "null"}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(row);
+    }
+    const duplicates: { juryId: number; startupId: number; roundId: number | null; count: number; ids: number[] }[] = [];
+    for (const [, rows] of Array.from(groups.entries())) {
+      if (rows.length > 1) {
+        duplicates.push({
+          juryId: rows[0].jury_id,
+          startupId: rows[0].startup_id,
+          roundId: rows[0].round_id ?? null,
+          count: rows.length,
+          ids: rows.map((r: any) => r.id),
+        });
+      }
+    }
+    return duplicates;
+  }
+
+  async deduplicateEvaluations(): Promise<{ removed: number }> {
+    const { data, error } = await supabaseAdmin
+      .from("evaluations").select("*").order("updated_at", { ascending: false });
+    if (error) throw error;
+    const seen = new Set<string>();
+    const toDelete: number[] = [];
+    for (const row of data || []) {
+      const key = `${row.jury_id}-${row.startup_id}-${row.round_id ?? "null"}`;
+      if (seen.has(key)) {
+        toDelete.push(row.id);
+      } else {
+        seen.add(key);
+      }
+    }
+    if (toDelete.length > 0) {
+      const { error: deleteError } = await supabaseAdmin.from("evaluations").delete().in("id", toDelete);
+      if (deleteError) throw deleteError;
+    }
+    return { removed: toDelete.length };
   }
 
   // ── Decision labels ──────────────────────────────────────

@@ -153,3 +153,29 @@
     @apply bg-white border border-slate-200 shadow-sm hover:shadow-md transition-shadow;
   }
 }
+
+@media print {
+  body {
+    background: white !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-content {
+    margin-left: 0 !important;
+    overflow: visible !important;
+    height: auto !important;
+    flex: 1;
+  }
+
+  .flex.h-screen {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .recharts-responsive-container {
+    page-break-inside: avoid;
+  }
+}

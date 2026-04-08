@@ -550,8 +550,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/evaluations", async (req, res) => {
     try {
-      res.json(await storage.createEvaluation(insertEvaluationSchema.parse(req.body)));
+      res.json(await storage.upsertEvaluation(insertEvaluationSchema.parse(req.body)));
     } catch { res.status(400).json({ error: "Invalid evaluation data" }); }
+  });
+
+  app.get("/api/evaluations/duplicates", requireAuth, requireAdmin, async (_req, res) => {
+    try {
+      res.json(await storage.getDuplicateEvaluations());
+    } catch { res.status(500).json({ error: "Failed to check duplicates" }); }
+  });
+
+  app.post("/api/evaluations/deduplicate", requireAuth, requireAdmin, async (_req, res) => {
+    try {
+      res.json(await storage.deduplicateEvaluations());
+    } catch { res.status(500).json({ error: "Failed to deduplicate evaluations" }); }
   });
 
   app.put("/api/evaluations/:id", async (req, res) => {

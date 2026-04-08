@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatScore, getDecisionColor, cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
-import { Award, Rocket, ClipboardCheck, TrendingUp, Search, Layers, ChevronRight, BarChart3, Star, X } from "lucide-react";
+import { Award, Rocket, ClipboardCheck, TrendingUp, Search, Layers, ChevronRight, BarChart3, Star, X, Download } from "lucide-react";
 import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, Tooltip as RechartsTooltip, Legend,
@@ -26,6 +26,7 @@ export default function Analytics() {
   const [selectedCohortId, setSelectedCohortId] = useState<number | null>(null);
   const [selectedRoundId, setSelectedRoundId] = useState<number | null>(null);
   const [selectedStartupId, setSelectedStartupId] = useState<number | null>(null);
+  const [showAllRankings, setShowAllRankings] = useState(false);
 
   const { data: cohorts = [] } = useQuery<any[]>({ queryKey: ["/api/cohorts"] });
   const { data: users = [] } = useQuery<any[]>({ queryKey: ["/api/users"] });
@@ -148,13 +149,17 @@ export default function Analytics() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
-      <Sidebar />
+      <div className="no-print">
+        <Sidebar />
+      </div>
 
-      <div className="flex-1 ml-64 flex flex-col overflow-hidden">
-        <Header title="Startup Intelligence" subtitle="Performance analysis by cohort, round & startup" />
+      <div className="flex-1 ml-64 flex flex-col overflow-hidden print-content">
+        <div className="no-print">
+          <Header title="Startup Intelligence" subtitle="Performance analysis by cohort, round & startup" />
+        </div>
 
         {/* ── Horizontal nav bar ── */}
-        <div className="bg-white border-b border-slate-200 shadow-sm px-6 py-3 flex items-center gap-0 shrink-0">
+        <div className="no-print bg-white border-b border-slate-200 shadow-sm px-6 py-3 flex items-center gap-0 shrink-0">
 
           {/* Cohorts — outside overflow so dropdown isn't clipped */}
           <div className="flex items-center gap-3 shrink-0 pr-3">
@@ -364,6 +369,19 @@ export default function Analytics() {
         {/* ── Content ── */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 min-w-0">
 
+            {/* Download PDF button */}
+            {selectedRoundId && (
+              <div className="no-print flex justify-end">
+                <button
+                  onClick={() => window.print()}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#0F7894] text-white text-sm font-medium rounded-lg hover:bg-[#0c6078] transition-colors shadow-sm"
+                >
+                  <Download className="h-4 w-4" />
+                  Download PDF
+                </button>
+              </div>
+            )}
+
             {/* Empty state */}
             {!selectedCohortId && (
               <div className="h-full flex flex-col items-center justify-center text-center opacity-40">
@@ -444,7 +462,7 @@ export default function Analytics() {
                       <div className="divide-y divide-slate-50">
                         {rankings.length === 0 ? (
                           <p className="text-xs text-slate-400 text-center py-4">No startups yet</p>
-                        ) : rankings.slice(0, 6).map((s: any, i: number) => (
+                        ) : (showAllRankings ? rankings : rankings.slice(0, 6)).map((s: any, i: number) => (
                           <button
                             key={s.id}
                             onClick={() => setSelectedStartupId(s.id)}
@@ -464,6 +482,14 @@ export default function Analytics() {
                           </button>
                         ))}
                       </div>
+                      {rankings.length > 6 && (
+                        <button
+                          onClick={() => setShowAllRankings(v => !v)}
+                          className="w-full text-center text-[10px] font-medium text-[#0F7894] hover:text-[#0c6078] py-2 border-t border-slate-100 hover:bg-slate-50 transition-colors"
+                        >
+                          {showAllRankings ? "Show less" : `See all ${rankings.length} startups`}
+                        </button>
+                      )}
                     </CardContent>
                   </Card>
 
