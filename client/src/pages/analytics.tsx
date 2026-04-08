@@ -617,34 +617,46 @@ export default function Analytics() {
                       </TableHeader>
                       <TableBody>
                         {startupEvals.map((e: any) => (
-                          <TableRow key={e.id} className="hover:bg-slate-50/50">
-                            <TableCell className="text-xs font-semibold py-2">{getJuryName(e.juryId)}</TableCell>
-                            {(roundCriteria as any[]).map((c: any) => {
-                              const val = e.scores?.[c.id.toString()];
-                              return (
-                                <TableCell key={c.id} className={cn("py-2", c.type === "text" ? "text-left" : "text-center")}>
-                                  {c.type === "scale" ? (
-                                    <span className={cn(
-                                      "inline-flex items-center justify-center w-7 h-7 rounded-full text-[11px] font-bold",
-                                      val >= 4 ? "bg-green-100 text-green-700" : val >= 3 ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"
-                                    )}>{val ?? "—"}</span>
-                                  ) : c.type === "binary" ? (
-                                    <Badge variant={val === "yes" ? "default" : "destructive"} className="text-[10px] px-1.5">{val ?? "—"}</Badge>
-                                  ) : (
-                                    <span className="text-xs text-gray-500 whitespace-normal break-words">{val ?? "—"}</span>
-                                  )}
+                          <>
+                            <TableRow key={e.id} className="hover:bg-slate-50/50">
+                              <TableCell className="text-xs font-semibold py-2">{getJuryName(e.juryId)}</TableCell>
+                              {(roundCriteria as any[]).map((c: any) => {
+                                const val = e.scores?.[c.id.toString()];
+                                return (
+                                  <TableCell key={c.id} className={cn("py-2", c.type === "text" ? "text-left" : "text-center")}>
+                                    {c.type === "scale" ? (
+                                      <span className={cn(
+                                        "inline-flex items-center justify-center w-7 h-7 rounded-full text-[11px] font-bold",
+                                        val >= 4 ? "bg-green-100 text-green-700" : val >= 3 ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"
+                                      )}>{val ?? "—"}</span>
+                                    ) : c.type === "binary" ? (
+                                      <Badge variant={val === "yes" ? "default" : "destructive"} className="text-[10px] px-1.5">{val ?? "—"}</Badge>
+                                    ) : (
+                                      <span className="text-xs text-gray-500 whitespace-normal break-words">{val ?? "—"}</span>
+                                    )}
+                                  </TableCell>
+                                );
+                              })}
+                              <TableCell className="text-center py-2">
+                                <Badge variant="outline" className={cn("text-[10px] px-1.5 font-bold", getDecisionColor(e.decision))}>
+                                  {e.decision ?? "—"}
+                                </Badge>
+                              </TableCell>
+                              {/* Comments: visible on screen, hidden on print (shown in row below instead) */}
+                              <TableCell className="text-xs text-slate-500 py-2 print:hidden">
+                                <p className="whitespace-normal break-words">{e.comments || <span className="italic text-slate-300">—</span>}</p>
+                              </TableCell>
+                            </TableRow>
+                            {/* Print-only comments row */}
+                            {e.comments && (
+                              <TableRow key={`${e.id}-comment`} className="hidden print:table-row bg-slate-50/60">
+                                <TableCell colSpan={(roundCriteria as any[]).length + 3} className="px-4 py-2 text-xs text-slate-600 border-b border-slate-100">
+                                  <span className="font-semibold text-slate-400 uppercase tracking-wide text-[10px] mr-2">Comment:</span>
+                                  {e.comments}
                                 </TableCell>
-                              );
-                            })}
-                            <TableCell className="text-center py-2">
-                              <Badge variant="outline" className={cn("text-[10px] px-1.5 font-bold", getDecisionColor(e.decision))}>
-                                {e.decision ?? "—"}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-xs text-slate-500 py-2">
-                              <p className="whitespace-normal break-words">{e.comments || <span className="italic text-slate-300">—</span>}</p>
-                            </TableCell>
-                          </TableRow>
+                              </TableRow>
+                            )}
+                          </>
                         ))}
                         {startupEvals.length === 0 && (
                           <TableRow>
