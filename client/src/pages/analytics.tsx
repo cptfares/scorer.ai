@@ -641,8 +641,8 @@ export default function Analytics() {
                                 {e.decision ?? "—"}
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-xs text-slate-500 max-w-[140px] print:max-w-none print:min-w-[220px] py-2">
-                              <p className="truncate print:whitespace-normal print:overflow-visible print:text-sm print:leading-relaxed" title={e.comments}>{e.comments || <span className="italic text-slate-300">—</span>}</p>
+                            <TableCell className="text-xs text-slate-500 py-2">
+                              <p className="whitespace-normal break-words">{e.comments || <span className="italic text-slate-300">—</span>}</p>
                             </TableCell>
                           </TableRow>
                         ))}
