@@ -622,7 +622,7 @@ export default function Analytics() {
                             {(roundCriteria as any[]).map((c: any) => {
                               const val = e.scores?.[c.id.toString()];
                               return (
-                                <TableCell key={c.id} className="text-center py-2">
+                                <TableCell key={c.id} className={cn("py-2", c.type === "text" ? "text-left" : "text-center")}>
                                   {c.type === "scale" ? (
                                     <span className={cn(
                                       "inline-flex items-center justify-center w-7 h-7 rounded-full text-[11px] font-bold",
@@ -631,7 +631,7 @@ export default function Analytics() {
                                   ) : c.type === "binary" ? (
                                     <Badge variant={val === "yes" ? "default" : "destructive"} className="text-[10px] px-1.5">{val ?? "—"}</Badge>
                                   ) : (
-                                    <span className="text-[10px] text-gray-500 truncate max-w-[80px] block">{val ?? "—"}</span>
+                                    <span className="text-xs text-gray-500 whitespace-normal break-words">{val ?? "—"}</span>
                                   )}
                                 </TableCell>
                               );
